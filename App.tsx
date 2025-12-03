@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TimerMode, Task, Settings, Theme } from './types';
 import { DEFAULT_SETTINGS, THEMES } from './constants';
@@ -69,22 +70,36 @@ const App: React.FC = () => {
   // Refs for timer interval
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Audio for notifications (simple beep)
+  // Audio for notifications
   const playNotification = () => {
+    if (!settings.soundEnabled) return;
+
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
     
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    
-    oscillator.start();
-    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
-    oscillator.stop(audioContext.currentTime + 0.5);
+    // Function to play a single beep
+    const beep = (startTime: number, freq: number, duration: number) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(freq, startTime);
+      
+      // Envelope to avoid clicking
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+
+    // Play a double beep sequence
+    const now = audioContext.currentTime;
+    beep(now, 880, 0.4); // First beep
+    beep(now + 0.5, 880, 0.4); // Second beep
   };
 
   // Helper to get duration for current mode

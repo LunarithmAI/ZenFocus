@@ -20,6 +20,7 @@ export interface Settings {
   autoStartPomodoros: boolean;
   ecoMode: boolean; // Low CPU mode
   backgroundBlur: number; // pixels
+  soundEnabled: boolean;
 }
 
 export interface Theme {

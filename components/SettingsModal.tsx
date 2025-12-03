@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Settings, Theme } from '../types';
 
@@ -196,6 +197,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Toggles */}
           <section className="space-y-3">
              <h3 className="text-xs uppercase font-bold text-white/40 mb-2 tracking-wider">Automation & Performance</h3>
+             <div className="flex items-center justify-between">
+                <span className="text-sm">Timer Alarm</span>
+                <button 
+                  onClick={() => handleChange('soundEnabled', !settings.soundEnabled)}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${settings.soundEnabled ? 'bg-green-500' : 'bg-white/20'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.soundEnabled ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
              <div className="flex items-center justify-between">
                 <span className="text-sm">Auto-start Breaks</span>
                 <button 

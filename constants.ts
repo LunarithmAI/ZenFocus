@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS = {
   autoStartPomodoros: false,
   ecoMode: false,
   backgroundBlur: 0,
+  soundEnabled: true,
 };
 
 export const THEMES: Theme[] = [
