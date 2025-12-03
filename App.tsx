@@ -43,13 +43,30 @@ const App: React.FC = () => {
     }
   });
 
-  const [theme, setTheme] = useState<Theme>(THEMES[0]);
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const savedId = localStorage.getItem('zenfocus_active_theme_id');
+      if (savedId) {
+        const allThemes = [...THEMES, ...customThemes];
+        const found = allThemes.find(t => t.id === savedId);
+        if (found) return found;
+      }
+    } catch (e) {
+      console.error("Failed to load active theme", e);
+    }
+    return THEMES[0];
+  });
+
   const [showSettings, setShowSettings] = useState(false);
 
   // Save custom themes to local storage
   useEffect(() => {
     localStorage.setItem('zenfocus_custom_themes', JSON.stringify(customThemes));
   }, [customThemes]);
+
+  useEffect(() => {
+    localStorage.setItem('zenfocus_active_theme_id', theme.id);
+  }, [theme]);
 
   const handleAddCustomTheme = (newTheme: Theme) => {
     setCustomThemes(prev => [...prev, newTheme]);
