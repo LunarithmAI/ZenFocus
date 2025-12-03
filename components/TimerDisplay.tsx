@@ -26,7 +26,7 @@ const TimerDisplay: React.FC<TimerDisplayProps> = ({
   
   // Calculate stroke dashoffset for the circle
   // Increased radius significantly to cover text/buttons
-  const radius = 220; 
+  const radius = 250; 
   const circumference = 2 * Math.PI * radius;
   const progress = timeLeft / totalTime;
   const dashOffset = circumference * (1 - progress);
