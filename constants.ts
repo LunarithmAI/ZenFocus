@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS = {
   ecoMode: false,
   backgroundBlur: 0,
   soundEnabled: true,
+  browserNotifications: true,
 };
 
 export const THEMES: Theme[] = [

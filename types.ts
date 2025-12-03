@@ -21,6 +21,7 @@ export interface Settings {
   ecoMode: boolean; // Low CPU mode
   backgroundBlur: number; // pixels
   soundEnabled: boolean;
+  browserNotifications: boolean;
 }
 
 export interface Theme {

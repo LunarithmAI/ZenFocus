@@ -207,6 +207,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
              </div>
              <div className="flex items-center justify-between">
+                <span className="text-sm">Browser Notifications</span>
+                <button 
+                  onClick={() => handleChange('browserNotifications', !settings.browserNotifications)}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${settings.browserNotifications ? 'bg-green-500' : 'bg-white/20'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.browserNotifications ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
+             <div className="flex items-center justify-between">
                 <span className="text-sm">Auto-start Breaks</span>
                 <button 
                   onClick={() => handleChange('autoStartBreaks', !settings.autoStartBreaks)}

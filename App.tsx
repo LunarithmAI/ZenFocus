@@ -25,6 +25,13 @@ const App: React.FC = () => {
     }
   }, [geminiApiKey]);
 
+  // Request Notification Permission on Mount if enabled
+  useEffect(() => {
+    if (settings.browserNotifications && 'Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }, [settings.browserNotifications]);
+
   // State: Themes (Default + Custom)
   const [customThemes, setCustomThemes] = useState<Theme[]>(() => {
     try {
@@ -123,6 +130,16 @@ const App: React.FC = () => {
   const handleComplete = () => {
     playNotification();
     setIsActive(false);
+
+    // Trigger Browser Notification
+    if (settings.browserNotifications && 'Notification' in window && Notification.permission === 'granted') {
+      const title = mode === TimerMode.POMODORO ? 'Focus Session Complete!' : 'Break Over!';
+      const body = mode === TimerMode.POMODORO 
+        ? 'Great job! Time to take a break.' 
+        : 'Break is finished. Ready to focus?';
+      
+      new Notification(title, { body });
+    }
 
     if (mode === TimerMode.POMODORO) {
       const newCount = sessionsCompleted + 1;
