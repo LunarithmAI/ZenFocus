@@ -1,0 +1,5 @@
+{
+  "name": "ZenFocus - AI Pomodoro",
+  "description": "A high-fidelity Pomodoro timer featuring customizable themes, backgrounds, embedded media (Spotify/YouTube), and AI-powered task breakdown using Gemini.",
+  "requestFramePermissions": []
+}
