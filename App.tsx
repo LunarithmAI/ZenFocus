@@ -9,7 +9,23 @@ import SettingsModal from './components/SettingsModal';
 
 const App: React.FC = () => {
   // State: Settings
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<Settings>(() => {
+    try {
+      const savedSettings = localStorage.getItem('zenfocus_settings');
+      if (savedSettings) {
+        // Merge with defaults to ensure new fields are present
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) };
+      }
+    } catch (e) {
+      console.error("Failed to load settings", e);
+    }
+    return DEFAULT_SETTINGS;
+  });
+
+  // Persist Settings
+  useEffect(() => {
+    localStorage.setItem('zenfocus_settings', JSON.stringify(settings));
+  }, [settings]);
   
   // State: Gemini API Key
   const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
