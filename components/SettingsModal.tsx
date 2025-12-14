@@ -245,6 +245,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.ecoMode ? 'left-7' : 'left-1'}`} />
                 </button>
              </div>
+             <div className="flex items-center justify-between">
+                <div>
+                   <span className="text-sm block">Auto Picture-in-Picture</span>
+                   <span className="text-xs text-white/40">Show timer in PiP when switching tabs</span>
+                </div>
+                <button 
+                  onClick={() => handleChange('autoPiPEnabled', !settings.autoPiPEnabled)}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${settings.autoPiPEnabled ? 'bg-green-500' : 'bg-white/20'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings.autoPiPEnabled ? 'left-7' : 'left-1'}`} />
+                </button>
+             </div>
           </section>
 
           {/* Themes */}

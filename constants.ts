@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS = {
   backgroundBlur: 0,
   soundEnabled: true,
   browserNotifications: true,
+  autoPiPEnabled: true,
 };
 
 export const THEMES: Theme[] = [

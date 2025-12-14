@@ -107,8 +107,9 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
-  // Refs for timer interval
+  // Refs for timer interval and PiP
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pipWindowRef = useRef<Window | null>(null);
 
   // Audio for notifications
   const playNotification = () => {
@@ -242,6 +243,230 @@ const App: React.FC = () => {
     setIsActive(false);
     setTimeLeft(getDuration(mode));
   };
+
+  // Picture-in-Picture - Cleanup when setting disabled
+  useEffect(() => {
+    if (!settings.autoPiPEnabled && pipWindowRef.current) {
+      pipWindowRef.current.close();
+      pipWindowRef.current = null;
+    }
+  }, [settings.autoPiPEnabled]);
+
+  // Picture-in-Picture - Update content when timer/mode changes
+  useEffect(() => {
+    if (!settings.autoPiPEnabled || !pipWindowRef.current) return;
+
+    const pipWindow = pipWindowRef.current;
+    const container = pipWindow.document.getElementById('pip-container');
+    if (!container) return;
+
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    let modeLabel = '';
+    let modeColor = '';
+    let strokeColor = '';
+    switch(mode) {
+      case TimerMode.POMODORO:
+        modeLabel = 'FOCUS TIME';
+        modeColor = '#f87171';
+        strokeColor = 'rgb(248, 113, 113)';
+        break;
+      case TimerMode.SHORT_BREAK:
+        modeLabel = 'SHORT BREAK';
+        modeColor = '#5eead4';
+        strokeColor = 'rgb(94, 234, 212)';
+        break;
+      case TimerMode.LONG_BREAK:
+        modeLabel = 'LONG BREAK';
+        modeColor = '#60a5fa';
+        strokeColor = 'rgb(96, 165, 250)';
+        break;
+    }
+
+    // Calculate progress for circle
+    const totalTime = getDuration(mode);
+    const progress = timeLeft / totalTime;
+    const radius = 120;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference * (1 - progress);
+
+    container.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%;">
+        <!-- Mode Switcher -->
+        <div style="display: flex; background: rgba(0,0,0,0.4); backdrop-filter: blur(20px); padding: 5px; border-radius: 999px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.1); gap: 3px;">
+          <button id="pip-pomodoro" style="padding: 7px 16px; border-radius: 999px; font-size: 10px; font-weight: bold; transition: all 0.3s; border: none; cursor: pointer; ${mode === TimerMode.POMODORO ? 'background: white; color: black; transform: scale(1.05);' : 'background: transparent; color: rgba(255,255,255,0.5);'}">
+            Focus
+          </button>
+          <button id="pip-short" style="padding: 7px 13px; border-radius: 999px; font-size: 10px; font-weight: bold; transition: all 0.3s; border: none; cursor: pointer; ${mode === TimerMode.SHORT_BREAK ? 'background: white; color: black; transform: scale(1.05);' : 'background: transparent; color: rgba(255,255,255,0.5);'}">
+            Short Break
+          </button>
+          <button id="pip-long" style="padding: 7px 13px; border-radius: 999px; font-size: 10px; font-weight: bold; transition: all 0.3s; border: none; cursor: pointer; ${mode === TimerMode.LONG_BREAK ? 'background: white; color: black; transform: scale(1.05);' : 'background: transparent; color: rgba(255,255,255,0.5);'}">
+            Long Break
+          </button>
+        </div>
+
+        <!-- Circular Timer -->
+        <div style="position: relative; width: 260px; height: 260px; margin-bottom: 0px;">
+          <svg width="260" height="260" style="transform: rotate(-90deg);">
+            <!-- Background Circle -->
+            <circle cx="130" cy="130" r="115" stroke="currentColor" stroke-width="5" fill="transparent" style="color: rgba(255,255,255,0.05);" />
+            <!-- Progress Circle -->
+            <circle cx="130" cy="130" r="115" stroke="${strokeColor}" stroke-width="5" fill="transparent" stroke-dasharray="${circumference * (115/radius)}" stroke-dashoffset="${dashOffset * (115/radius)}" stroke-linecap="round" style="transition: stroke-dashoffset 1s linear;" />
+          </svg>
+          
+          <!-- Timer Content Overlay -->
+          <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;">
+            <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 2.5px; opacity: 0.5; margin-bottom: 12px;">${modeLabel}</div>
+            <div style="font-size: 52px; font-weight: bold; font-family: monospace; line-height: 1; margin-bottom: 18px; letter-spacing: -2px;">${formattedTime}</div>
+            
+            <!-- Control Buttons -->
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button id="pip-toggle" style="background: white; color: black; padding: 9px 26px; border-radius: 999px; font-weight: bold; cursor: pointer; font-size: 12px; transition: all 0.2s; border: none; box-shadow: 0 0 20px rgba(255,255,255,0.2);">
+                ${isActive ? 'Pause' : 'Start'}
+              </button>
+              <button id="pip-reset" style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); color: white; padding: 9px; border-radius: 999px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add event listeners
+    const toggleBtn = container.querySelector('#pip-toggle');
+    const resetBtn = container.querySelector('#pip-reset');
+    const pomodoroBtn = container.querySelector('#pip-pomodoro');
+    const shortBtn = container.querySelector('#pip-short');
+    const longBtn = container.querySelector('#pip-long');
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => toggleTimer());
+      toggleBtn.addEventListener('mouseenter', (e) => {
+        (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.9)';
+        (e.target as HTMLElement).style.transform = 'scale(1.05)';
+      });
+      toggleBtn.addEventListener('mouseleave', (e) => {
+        (e.target as HTMLElement).style.background = 'white';
+        (e.target as HTMLElement).style.transform = 'scale(1)';
+      });
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => resetTimer());
+      resetBtn.addEventListener('mouseenter', (e) => {
+        (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.2)';
+        (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.3)';
+      });
+      resetBtn.addEventListener('mouseleave', (e) => {
+        (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
+        (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)';
+      });
+    }
+
+    const setupModeButton = (btn: Element | null, targetMode: TimerMode) => {
+      if (!btn) return;
+      btn.addEventListener('click', () => switchMode(targetMode));
+      if (mode !== targetMode) {
+        btn.addEventListener('mouseenter', (e) => {
+          (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
+        });
+        btn.addEventListener('mouseleave', (e) => {
+          (e.target as HTMLElement).style.background = 'transparent';
+        });
+      }
+    };
+
+    setupModeButton(pomodoroBtn, TimerMode.POMODORO);
+    setupModeButton(shortBtn, TimerMode.SHORT_BREAK);
+    setupModeButton(longBtn, TimerMode.LONG_BREAK);
+  }, [settings.autoPiPEnabled, timeLeft, mode, isActive, toggleTimer, resetTimer, switchMode, getDuration]);
+
+  // Picture-in-Picture - Handle visibility changes
+  useEffect(() => {
+    if (!settings.autoPiPEnabled) return;
+
+    const documentPiP = (window as any).documentPictureInPicture;
+    if (!documentPiP) return;
+
+    const openPiP = async () => {
+      if (pipWindowRef.current) return; // Already open
+
+      try {
+        // Open new PiP window - compact size
+        const pipWindow = await documentPiP.requestWindow({
+          width: 360,
+          height: 420,
+        });
+
+        pipWindowRef.current = pipWindow;
+
+        // Style html and body elements
+        pipWindow.document.documentElement.style.cssText = `
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+        `;
+
+        // Set background with current theme
+        pipWindow.document.body.style.cssText = `
+          margin: 0; 
+          padding: 0; 
+          overflow: hidden; 
+          background-image: url('${theme.bgImage}');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          position: relative;
+          width: 100%;
+          height: 100%;
+        `;
+
+        // Add dark overlay
+        const overlay = pipWindow.document.createElement('div');
+        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 1;';
+        pipWindow.document.body.appendChild(overlay);
+
+        // Create PiP content container
+        const container = pipWindow.document.createElement('div');
+        container.id = 'pip-container';
+        container.style.cssText = 'position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-family: system-ui; padding: 20px; box-sizing: border-box;';
+        
+        pipWindow.document.body.appendChild(container);
+
+        // Handle PiP window close
+        pipWindow.addEventListener('pagehide', () => {
+          pipWindowRef.current = null;
+        });
+
+      } catch (error) {
+        console.error('Failed to open PiP:', error);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && !pipWindowRef.current) {
+        openPiP();
+      } else if (!document.hidden && pipWindowRef.current) {
+        pipWindowRef.current.close();
+        pipWindowRef.current = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (pipWindowRef.current) {
+        pipWindowRef.current.close();
+        pipWindowRef.current = null;
+      }
+    };
+  }, [settings.autoPiPEnabled, theme]);
 
   const allThemes = [...THEMES, ...customThemes];
 

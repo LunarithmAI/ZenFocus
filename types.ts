@@ -22,6 +22,7 @@ export interface Settings {
   backgroundBlur: number; // pixels
   soundEnabled: boolean;
   browserNotifications: boolean;
+  autoPiPEnabled: boolean; // Auto Picture-in-Picture when tab is hidden
 }
 
 export interface Theme {
