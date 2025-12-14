@@ -285,6 +285,10 @@ const App: React.FC = () => {
     const seconds = timeLeft % 60;
     const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
+    // Get active task name
+    const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
+    const activeTaskName = activeTask ? activeTask.title : '';
+
     let modeLabel = '';
     let modeColor = '';
     let strokeColor = '';
@@ -332,15 +336,23 @@ const App: React.FC = () => {
         <div style="position: relative; width: 260px; height: 260px; margin-bottom: 0px;">
           <svg width="260" height="260" style="transform: rotate(-90deg);">
             <!-- Background Circle -->
-            <circle cx="130" cy="130" r="115" stroke="currentColor" stroke-width="5" fill="transparent" style="color: rgba(255,255,255,0.05);" />
+            <circle cx="130" cy="130" r="125" stroke="currentColor" stroke-width="5" fill="transparent" style="color: rgba(255,255,255,0.05);" />
             <!-- Progress Circle -->
-            <circle cx="130" cy="130" r="115" stroke="${strokeColor}" stroke-width="5" fill="transparent" stroke-dasharray="${circumference * (115/radius)}" stroke-dashoffset="${dashOffset * (115/radius)}" stroke-linecap="round" style="transition: stroke-dashoffset 1s linear;" />
+            <circle cx="130" cy="130" r="125" stroke="${strokeColor}" stroke-width="5" fill="transparent" stroke-dasharray="${circumference * (125/radius)}" stroke-dashoffset="${dashOffset * (125/radius)}" stroke-linecap="round" style="transition: stroke-dashoffset 1s linear;" />
           </svg>
           
           <!-- Timer Content Overlay -->
           <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;">
             <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 2.5px; opacity: 0.5; margin-bottom: 12px;">${modeLabel}</div>
             <div style="font-size: 52px; font-weight: bold; font-family: monospace; line-height: 1; margin-bottom: 18px; letter-spacing: -2px;">${formattedTime}</div>
+            
+            ${activeTaskName ? `
+            <!-- Active Task Display -->
+            <div style="margin-bottom: 16px; text-align: center; max-width: 200px;">
+              <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.6; margin-bottom: 6px;">Working On</div>
+              <div style="font-size: 13px; font-weight: 600; line-height: 1.3; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activeTaskName}</div>
+            </div>
+            ` : ''}
             
             <!-- Control Buttons -->
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -403,7 +415,7 @@ const App: React.FC = () => {
     setupModeButton(pomodoroBtn, TimerMode.POMODORO);
     setupModeButton(shortBtn, TimerMode.SHORT_BREAK);
     setupModeButton(longBtn, TimerMode.LONG_BREAK);
-  }, [settings.autoPiPEnabled, timeLeft, mode, isActive, toggleTimer, resetTimer, switchMode, getDuration]);
+  }, [settings.autoPiPEnabled, timeLeft, mode, isActive, toggleTimer, resetTimer, switchMode, getDuration, tasks, activeTaskId]);
 
   // Picture-in-Picture - Handle visibility changes
   useEffect(() => {
@@ -580,11 +592,18 @@ const App: React.FC = () => {
              
              {/* Quick Tip / Status */}
              <div className="mt-16 text-center animate-fade-in max-w-md">
-                <p className="text-white/40 text-sm font-medium tracking-wide">
-                  {activeTaskId 
-                    ? `Working on: ${tasks.find(t => t.id === activeTaskId)?.title}` 
-                    : "Select a task from the list to track your focus"}
-                </p>
+                {activeTaskId ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-white/60 text-xs font-bold uppercase tracking-widest">Working On</span>
+                    <p className="text-white text-xl font-semibold tracking-wide bg-white/5 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 shadow-lg">
+                      {tasks.find(t => t.id === activeTaskId)?.title}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-white/40 text-sm font-medium tracking-wide">
+                    Select a task from the list to track your focus
+                  </p>
+                )}
              </div>
           </section>
 
