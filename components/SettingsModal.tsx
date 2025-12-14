@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Settings, Theme } from '../types';
+import { Settings, Theme, AIModelConfig } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -14,6 +14,8 @@ interface SettingsModalProps {
   onDeleteCustomTheme: (id: string) => void;
   apiKey: string;
   onUpdateApiKey: (key: string) => void;
+  modelConfig: AIModelConfig;
+  onUpdateModelConfig: (config: AIModelConfig) => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -27,7 +29,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddCustomTheme,
   onDeleteCustomTheme,
   apiKey,
-  onUpdateApiKey
+  onUpdateApiKey,
+  modelConfig,
+  onUpdateModelConfig
 }) => {
   if (!isOpen) return null;
 
@@ -36,6 +40,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newThemeName, setNewThemeName] = useState('');
   const [tempApiKey, setTempApiKey] = useState(apiKey);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [tempModelId, setTempModelId] = useState(modelConfig.modelId);
+  const [tempPrompt, setTempPrompt] = useState(modelConfig.customPrompt);
 
   const handleChange = (key: keyof Settings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
@@ -74,6 +80,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSaveApiKey = () => {
     onUpdateApiKey(tempApiKey);
+  };
+
+  const handleSaveModelConfig = () => {
+    onUpdateModelConfig({
+      modelId: tempModelId,
+      customPrompt: tempPrompt
+    });
+  };
+
+  const handleResetPrompt = () => {
+    const defaultPrompt = 'Break down the following goal into 3-5 smaller, actionable tasks suitable for 25-minute Pomodoro sessions: "{goal}". Keep titles concise.';
+    setTempPrompt(defaultPrompt);
   };
 
   return (
@@ -132,6 +150,65 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                <div className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                  Key saved
+               </div>
+             )}
+           </section>
+
+          {/* AI Model Configuration Section */}
+          <section className="bg-purple-900/10 p-4 rounded-xl border border-purple-500/20">
+             <div className="flex items-center gap-2 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                <h3 className="text-xs uppercase font-bold text-purple-300 tracking-wider">AI Model Settings</h3>
+             </div>
+             
+             {/* Model ID Input */}
+             <div className="mb-4">
+                <label className="text-xs text-white/60 mb-1 block">Model ID</label>
+                <input 
+                  type="text"
+                  value={tempModelId}
+                  onChange={(e) => setTempModelId(e.target.value)}
+                  placeholder="gemini-2.5-flash"
+                  className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors"
+                />
+                <p className="text-[10px] text-white/40 mt-1">
+                  Examples: gemini-2.5-flash, gemini-1.5-pro, gemini-1.5-flash
+                </p>
+             </div>
+
+             {/* Custom Prompt Input */}
+             <div className="mb-4">
+                <div className="flex justify-between items-center mb-1">
+                   <label className="text-xs text-white/60">Custom Prompt Template</label>
+                   <button 
+                     onClick={handleResetPrompt}
+                     className="text-[10px] text-purple-400 hover:text-purple-300 font-bold"
+                   >
+                     Reset to Default
+                   </button>
+                </div>
+                <textarea 
+                  value={tempPrompt}
+                  onChange={(e) => setTempPrompt(e.target.value)}
+                  placeholder='Break down the following goal into 3-5 smaller, actionable tasks suitable for 25-minute Pomodoro sessions: "{goal}". Keep titles concise.'
+                  rows={4}
+                  className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors resize-none"
+                />
+                <p className="text-[10px] text-white/40 mt-1">
+                  Use {'{goal}'} as a placeholder for the user's input goal
+                </p>
+             </div>
+
+             <button 
+               onClick={handleSaveModelConfig}
+               className="w-full bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded font-bold text-xs transition-colors"
+             >
+               Save Model Settings
+             </button>
+             {modelConfig.modelId && (
+               <div className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                 Model settings saved
                </div>
              )}
           </section>

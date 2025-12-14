@@ -25,6 +25,11 @@ export interface Settings {
   autoPiPEnabled: boolean; // Auto Picture-in-Picture when tab is hidden
 }
 
+export interface AIModelConfig {
+  modelId: string; // e.g., "gemini-2.5-flash", "gemini-1.5-pro", etc.
+  customPrompt: string; // Custom prompt template for task breakdown
+}
+
 export interface Theme {
   id: string;
   name: string;

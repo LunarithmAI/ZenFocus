@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Task } from '../types';
+import { Task, AIModelConfig } from '../types';
 import { breakDownTask } from '../services/geminiService';
 
 interface TaskListProps {
@@ -8,9 +8,10 @@ interface TaskListProps {
   activeTaskId: string | null;
   setActiveTaskId: (id: string | null) => void;
   apiKey?: string;
+  modelConfig?: AIModelConfig;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setActiveTaskId, apiKey }) => {
+const TaskList: React.FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setActiveTaskId, apiKey, modelConfig }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiInput, setShowAiInput] = useState(false);
@@ -43,7 +44,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setA
     setError('');
     setIsGenerating(true);
     try {
-      const suggestedTasks = await breakDownTask(aiPrompt, apiKey);
+      const suggestedTasks = await breakDownTask(aiPrompt, apiKey, modelConfig);
       if (suggestedTasks.length === 0) {
         setError('Failed to generate tasks. Please check your API Key in Settings or try again.');
       } else {

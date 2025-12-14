@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { TimerMode, Task, Settings, Theme } from './types';
+import { TimerMode, Task, Settings, Theme, AIModelConfig } from './types';
 import { DEFAULT_SETTINGS, THEMES } from './constants';
 import TimerDisplay from './components/TimerDisplay';
 import TaskList from './components/TaskList';
@@ -40,6 +40,27 @@ const App: React.FC = () => {
       localStorage.removeItem('zenfocus_gemini_api_key');
     }
   }, [geminiApiKey]);
+
+  // State: AI Model Configuration
+  const [modelConfig, setModelConfig] = useState<AIModelConfig>(() => {
+    try {
+      const saved = localStorage.getItem('zenfocus_model_config');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Failed to load model config", e);
+    }
+    return {
+      modelId: 'gemini-2.5-flash',
+      customPrompt: 'Break down the following goal into 3-5 smaller, actionable tasks suitable for 25-minute Pomodoro sessions: "{goal}". Keep titles concise.'
+    };
+  });
+
+  // Save model config when it changes
+  useEffect(() => {
+    localStorage.setItem('zenfocus_model_config', JSON.stringify(modelConfig));
+  }, [modelConfig]);
 
   // Request Notification Permission on Mount if enabled
   useEffect(() => {
@@ -521,13 +542,14 @@ const App: React.FC = () => {
           
           {/* Left Column: Tasks (30%) */}
           <section className="lg:col-span-3 flex flex-col h-[650px] lg:h-[calc(100vh-200px)] sticky top-24">
-             <TaskList 
-               tasks={tasks} 
-               setTasks={setTasks} 
-               activeTaskId={activeTaskId} 
-               setActiveTaskId={setActiveTaskId}
-               apiKey={geminiApiKey}
-             />
+              <TaskList 
+                tasks={tasks} 
+                setTasks={setTasks} 
+                activeTaskId={activeTaskId} 
+                setActiveTaskId={setActiveTaskId}
+                apiKey={geminiApiKey}
+                modelConfig={modelConfig}
+              />
           </section>
 
           {/* Center Column: Timer (40%) */}
@@ -586,6 +608,8 @@ const App: React.FC = () => {
         onDeleteCustomTheme={handleDeleteCustomTheme}
         apiKey={geminiApiKey}
         onUpdateApiKey={setGeminiApiKey}
+        modelConfig={modelConfig}
+        onUpdateModelConfig={setModelConfig}
       />
     </div>
   );
