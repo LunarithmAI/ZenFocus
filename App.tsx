@@ -53,7 +53,9 @@ const App: React.FC = () => {
     }
     return {
       modelId: 'gemini-2.5-flash',
-      customPrompt: 'Break down the following goal into 3-5 smaller, actionable tasks suitable for 25-minute Pomodoro sessions: "{goal}". Keep titles concise.'
+      customPrompt: 'Break down the following goal into 3-5 smaller, actionable tasks suitable for 25-minute Pomodoro sessions: "{goal}". Keep titles concise.',
+      provider: 'gemini',
+      supportsStructuredOutput: true
     };
   });
 

@@ -35,6 +35,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const [activeTab, setActiveTab] = useState<'general' | 'llm'>('general');
   const [isAddingTheme, setIsAddingTheme] = useState(false);
   const [newThemeUrl, setNewThemeUrl] = useState('');
   const [newThemeName, setNewThemeName] = useState('');
@@ -42,6 +43,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showApiKey, setShowApiKey] = useState(false);
   const [tempModelId, setTempModelId] = useState(modelConfig.modelId);
   const [tempPrompt, setTempPrompt] = useState(modelConfig.customPrompt);
+  const [tempProvider, setTempProvider] = useState<'gemini' | 'openai-compatible'>(modelConfig.provider || 'gemini');
+  const [tempApiBaseUrl, setTempApiBaseUrl] = useState(modelConfig.apiBaseUrl || '');
+  const [tempSupportsStructuredOutput, setTempSupportsStructuredOutput] = useState(modelConfig.supportsStructuredOutput ?? true);
 
   const handleChange = (key: keyof Settings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
@@ -85,7 +89,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSaveModelConfig = () => {
     onUpdateModelConfig({
       modelId: tempModelId,
-      customPrompt: tempPrompt
+      customPrompt: tempPrompt,
+      provider: tempProvider,
+      apiBaseUrl: tempApiBaseUrl,
+      supportsStructuredOutput: tempSupportsStructuredOutput
     });
   };
 
@@ -107,114 +114,196 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b border-white/10 shrink-0">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'general' 
+                ? 'text-white border-b-2 border-purple-500' 
+                : 'text-white/50 hover:text-white/70'
+            }`}
+          >
+            General
+          </button>
+          <button
+            onClick={() => setActiveTab('llm')}
+            className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'llm' 
+                ? 'text-white border-b-2 border-purple-500' 
+                : 'text-white/50 hover:text-white/70'
+            }`}
+          >
+            LLM
+          </button>
+        </div>
+
         {/* Body */}
         <div className="p-6 overflow-y-auto space-y-8 custom-scrollbar">
           
-          {/* API Key Section */}
-          <section className="bg-purple-900/10 p-4 rounded-xl border border-purple-500/20">
-             <div className="flex items-center gap-2 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M12 17v.01"/><path d="M17 12v.01"/></svg>
-                <h3 className="text-xs uppercase font-bold text-purple-300 tracking-wider">AI Configuration</h3>
-             </div>
-             <p className="text-xs text-white/50 mb-3">
-               Enter your <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-purple-400 hover:underline">Gemini API Key</a> to enable AI task breakdown.
-             </p>
-             <div className="flex gap-2">
-                <div className="relative flex-1">
-                   <input 
-                     type={showApiKey ? "text" : "password"}
-                     value={tempApiKey}
-                     onChange={(e) => setTempApiKey(e.target.value)}
-                     placeholder="Paste API Key here..."
-                     className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors pr-8"
-                   />
-                   <button 
-                     onClick={() => setShowApiKey(!showApiKey)}
-                     className="absolute right-2 top-2 text-white/30 hover:text-white"
-                   >
-                     {showApiKey ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-                     ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                     )}
-                   </button>
-                </div>
-                <button 
-                  onClick={handleSaveApiKey}
-                  className="bg-purple-600 hover:bg-purple-500 px-4 rounded font-bold text-xs transition-colors"
-                >
-                  Save
-                </button>
-             </div>
-             {apiKey && (
-               <div className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                 Key saved
-               </div>
-             )}
-           </section>
+          {activeTab === 'llm' && (
+            <>
+              {/* API Key Section */}
+              <section className="bg-purple-900/10 p-4 rounded-xl border border-purple-500/20">
+                 <div className="flex items-center gap-2 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M12 17v.01"/><path d="M17 12v.01"/></svg>
+                    <h3 className="text-xs uppercase font-bold text-purple-300 tracking-wider">API Configuration</h3>
+                 </div>
+                 <p className="text-xs text-white/50 mb-3">
+                   {tempProvider === 'gemini' 
+                     ? <>Enter your <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-purple-400 hover:underline">Gemini API Key</a> to enable AI task breakdown.</>
+                     : 'Enter your OpenAI-compatible API key to enable AI task breakdown.'
+                   }
+                 </p>
+                 <div className="flex gap-2">
+                    <div className="relative flex-1">
+                       <input 
+                         type={showApiKey ? "text" : "password"}
+                         value={tempApiKey}
+                         onChange={(e) => setTempApiKey(e.target.value)}
+                         placeholder="Paste API Key here..."
+                         className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors pr-8"
+                       />
+                       <button 
+                         onClick={() => setShowApiKey(!showApiKey)}
+                         className="absolute right-2 top-2 text-white/30 hover:text-white"
+                       >
+                         {showApiKey ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                         ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                         )}
+                       </button>
+                    </div>
+                    <button 
+                      onClick={handleSaveApiKey}
+                      className="bg-purple-600 hover:bg-purple-500 px-4 rounded font-bold text-xs transition-colors"
+                    >
+                      Save
+                    </button>
+                 </div>
+                 {apiKey && (
+                   <div className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                     Key saved
+                   </div>
+                 )}
+              </section>
 
-          {/* AI Model Configuration Section */}
-          <section className="bg-purple-900/10 p-4 rounded-xl border border-purple-500/20">
-             <div className="flex items-center gap-2 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                <h3 className="text-xs uppercase font-bold text-purple-300 tracking-wider">AI Model Settings</h3>
-             </div>
-             
-             {/* Model ID Input */}
-             <div className="mb-4">
-                <label className="text-xs text-white/60 mb-1 block">Model ID</label>
-                <input 
-                  type="text"
-                  value={tempModelId}
-                  onChange={(e) => setTempModelId(e.target.value)}
-                  placeholder="gemini-2.5-flash"
-                  className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors"
-                />
-                <p className="text-[10px] text-white/40 mt-1">
-                  Examples: gemini-2.5-flash, gemini-1.5-pro, gemini-1.5-flash
-                </p>
-             </div>
+              {/* AI Model Configuration Section */}
+              <section className="bg-purple-900/10 p-4 rounded-xl border border-purple-500/20">
+                 <div className="flex items-center gap-2 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                    <h3 className="text-xs uppercase font-bold text-purple-300 tracking-wider">Model Configuration</h3>
+                 </div>
+                 
+                 {/* Provider Selection */}
+                 <div className="mb-4">
+                    <label className="text-xs text-white/60 mb-1 block">Provider</label>
+                    <select 
+                      value={tempProvider}
+                      onChange={(e) => setTempProvider(e.target.value as 'gemini' | 'openai-compatible')}
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors"
+                    >
+                      <option value="gemini">Google Gemini</option>
+                      <option value="openai-compatible">OpenAI-Compatible</option>
+                    </select>
+                 </div>
 
-             {/* Custom Prompt Input */}
-             <div className="mb-4">
-                <div className="flex justify-between items-center mb-1">
-                   <label className="text-xs text-white/60">Custom Prompt Template</label>
-                   <button 
-                     onClick={handleResetPrompt}
-                     className="text-[10px] text-purple-400 hover:text-purple-300 font-bold"
-                   >
-                     Reset to Default
-                   </button>
-                </div>
-                <textarea 
-                  value={tempPrompt}
-                  onChange={(e) => setTempPrompt(e.target.value)}
-                  placeholder='Break down the following goal into 3-5 smaller, actionable tasks suitable for 25-minute Pomodoro sessions: "{goal}". Keep titles concise.'
-                  rows={4}
-                  className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors resize-none"
-                />
-                <p className="text-[10px] text-white/40 mt-1">
-                  Use {'{goal}'} as a placeholder for the user's input goal
-                </p>
-             </div>
+                 {/* API Base URL (for OpenAI-compatible) */}
+                 {tempProvider === 'openai-compatible' && (
+                   <div className="mb-4">
+                      <label className="text-xs text-white/60 mb-1 block">API Base URL</label>
+                      <input 
+                        type="text"
+                        value={tempApiBaseUrl}
+                        onChange={(e) => setTempApiBaseUrl(e.target.value)}
+                        placeholder="https://api.openai.com/v1"
+                        className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors"
+                      />
+                      <p className="text-[10px] text-white/40 mt-1">
+                        Base URL for your OpenAI-compatible API endpoint
+                      </p>
+                   </div>
+                 )}
 
-             <button 
-               onClick={handleSaveModelConfig}
-               className="w-full bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded font-bold text-xs transition-colors"
-             >
-               Save Model Settings
-             </button>
-             {modelConfig.modelId && (
-               <div className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                 Model settings saved
-               </div>
-             )}
-          </section>
+                 {/* Model ID Input */}
+                 <div className="mb-4">
+                    <label className="text-xs text-white/60 mb-1 block">Model ID</label>
+                    <input 
+                      type="text"
+                      value={tempModelId}
+                      onChange={(e) => setTempModelId(e.target.value)}
+                      placeholder={tempProvider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-4o'}
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                    <p className="text-[10px] text-white/40 mt-1">
+                      {tempProvider === 'gemini' 
+                        ? 'Examples: gemini-2.5-flash, gemini-1.5-pro, gemini-1.5-flash'
+                        : 'Examples: gpt-4o, gpt-4-turbo, gpt-3.5-turbo'
+                      }
+                    </p>
+                 </div>
 
-          {/* Appearance Section */}
-          <section>
+                 {/* Structured Output Toggle */}
+                 <div className="mb-4">
+                    <div className="flex items-center justify-between bg-black/20 border border-white/10 rounded px-3 py-2">
+                       <div>
+                          <span className="text-sm block">Supports Structured Output</span>
+                          <span className="text-xs text-white/40">Disable if model doesn't support JSON schema</span>
+                       </div>
+                       <button 
+                         onClick={() => setTempSupportsStructuredOutput(!tempSupportsStructuredOutput)}
+                         className={`w-12 h-6 rounded-full relative transition-colors ${tempSupportsStructuredOutput ? 'bg-green-500' : 'bg-white/20'}`}
+                       >
+                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${tempSupportsStructuredOutput ? 'left-7' : 'left-1'}`} />
+                       </button>
+                    </div>
+                 </div>
+
+                 {/* Custom Prompt Input */}
+                 <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1">
+                       <label className="text-xs text-white/60">Custom Prompt Template</label>
+                       <button 
+                         onClick={handleResetPrompt}
+                         className="text-[10px] text-purple-400 hover:text-purple-300 font-bold"
+                       >
+                         Reset to Default
+                       </button>
+                    </div>
+                    <textarea 
+                      value={tempPrompt}
+                      onChange={(e) => setTempPrompt(e.target.value)}
+                      placeholder='Break down the following goal into 3-5 smaller, actionable tasks suitable for 25-minute Pomodoro sessions: "{goal}". Keep titles concise.'
+                      rows={4}
+                      className="w-full bg-black/20 border border-white/10 rounded px-3 py-2 text-sm outline-none focus:border-purple-500/50 transition-colors resize-none"
+                    />
+                    <p className="text-[10px] text-white/40 mt-1">
+                      Use {'{goal}'} as a placeholder for the user's input goal
+                    </p>
+                 </div>
+
+                 <button 
+                   onClick={handleSaveModelConfig}
+                   className="w-full bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded font-bold text-xs transition-colors"
+                 >
+                   Save Model Settings
+                 </button>
+                 {modelConfig.modelId && (
+                   <div className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                     Model settings saved
+                   </div>
+                 )}
+              </section>
+            </>
+          )}
+
+          {activeTab === 'general' && (
+            <>
+              {/* Appearance Section */}
+              <section>
             <h3 className="text-xs uppercase font-bold text-white/40 mb-4 tracking-wider">Appearance</h3>
             <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                 <div className="flex justify-between items-center mb-3">
@@ -415,8 +504,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
                 </div>
               ))}
-            </div>
-          </section>
+             </div>
+           </section>
+            </>
+          )}
 
         </div>
       </div>

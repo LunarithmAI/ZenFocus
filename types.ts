@@ -28,6 +28,9 @@ export interface Settings {
 export interface AIModelConfig {
   modelId: string; // e.g., "gemini-2.5-flash", "gemini-1.5-pro", etc.
   customPrompt: string; // Custom prompt template for task breakdown
+  provider: 'gemini' | 'openai-compatible'; // AI provider type
+  apiBaseUrl?: string; // Base URL for OpenAI-compatible API
+  supportsStructuredOutput: boolean; // Whether model supports structured output
 }
 
 export interface Theme {
