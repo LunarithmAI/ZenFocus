@@ -16,6 +16,7 @@ export interface Settings {
   pomodoroTime: number; // in minutes
   shortBreakTime: number;
   longBreakTime: number;
+  longBreakInterval: number; // How many pomodoros before long break
   autoStartBreaks: boolean;
   autoStartPomodoros: boolean;
   ecoMode: boolean; // Low CPU mode

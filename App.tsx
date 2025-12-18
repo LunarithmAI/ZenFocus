@@ -210,7 +210,7 @@ const App: React.FC = () => {
       }
 
       // Determine next break
-      if (newCount % 4 === 0) {
+      if (newCount % settings.longBreakInterval === 0) {
         if (settings.autoStartBreaks) {
            setMode(TimerMode.LONG_BREAK);
            setTimeLeft(getDuration(TimerMode.LONG_BREAK));

@@ -39,6 +39,17 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setA
     if (activeTaskId === id) setActiveTaskId(null);
   };
 
+  const clearAllTasks = () => {
+    if (tasks.length === 0) return;
+    if (activeTaskId) {
+      // Keep only the active task
+      setTasks(prev => prev.filter(t => t.id === activeTaskId));
+    } else {
+      // Clear all if no active task
+      setTasks([]);
+    }
+  };
+
   const handleAiBreakdown = async () => {
     if (!aiPrompt.trim()) return;
     setError('');
@@ -75,13 +86,24 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setA
           </div>
           Tasks
         </h3>
-        <button 
-          onClick={() => setShowAiInput(!showAiInput)}
-          className={`text-xs px-4 py-2 rounded-lg flex items-center gap-2 transition-all font-bold tracking-wide border ${showAiInput ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'}`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-          AI ASSIST
-        </button>
+        <div className="flex items-center gap-2">
+          {tasks.length > 0 && (
+            <button 
+              onClick={clearAllTasks}
+              className="text-xs px-3 py-2 rounded-lg flex items-center gap-2 transition-all font-bold tracking-wide border bg-white/5 border-white/10 hover:bg-red-500/20 hover:border-red-500/30 text-white/80 hover:text-red-300"
+              title={activeTaskId ? "Clear all except active task" : "Clear all tasks"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          )}
+          <button 
+            onClick={() => setShowAiInput(!showAiInput)}
+            className={`text-xs px-4 py-2 rounded-lg flex items-center gap-2 transition-all font-bold tracking-wide border ${showAiInput ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.5)]' : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            AI ASSIST
+          </button>
+        </div>
       </div>
 
       {showAiInput && (

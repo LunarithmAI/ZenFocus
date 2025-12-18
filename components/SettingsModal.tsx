@@ -51,18 +51,65 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onUpdateSettings({ ...settings, [key]: value });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimensions for 4K theme backgrounds
+          const MAX_WIDTH = 3840;
+          const MAX_HEIGHT = 2160;
+          
+          // Scale down if needed (rescaling)
+          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+            const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+            width = width * ratio;
+            height = height * ratio;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // JPEG compression with adaptive quality
+          // Start with high quality and reduce if data URL is too large
+          let quality = 0.92;
+          let dataUrl = canvas.toDataURL('image/jpeg', quality);
+          
+          // Progressive quality reduction if still too large
+          // Target: keep under reasonable size for localStorage
+          while (dataUrl.length > 5 * 1024 * 1024 && quality > 0.5) {
+            quality -= 0.05;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+          
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        alert("Image is too large. Please select an image under 2MB.");
-        return;
+      try {
+        const compressedDataUrl = await compressImage(file);
+        setNewThemeUrl(compressedDataUrl);
+      } catch (error) {
+        console.error('Failed to process image:', error);
+        alert("Failed to process image. Please try another file.");
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewThemeUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -329,7 +376,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Timer Settings */}
           <section>
             <h3 className="text-xs uppercase font-bold text-white/40 mb-4 tracking-wider">Timer (minutes)</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4 mb-4">
               <div>
                 <label className="block text-sm text-white/70 mb-1">Pomodoro</label>
                 <input 
@@ -357,6 +404,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 outline-none focus:border-white/40"
                 />
               </div>
+            </div>
+            <div className="bg-white/5 p-4 rounded-xl border border-white/5">
+              <label className="block text-sm text-white/70 mb-2">Long Break Interval</label>
+              <input 
+                type="number" 
+                min="1"
+                max="10"
+                value={settings.longBreakInterval} 
+                onChange={(e) => handleChange('longBreakInterval', parseInt(e.target.value) || 4)}
+                className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 outline-none focus:border-white/40"
+              />
+              <p className="text-xs text-white/40 mt-2">Number of pomodoros before a long break (default: 4)</p>
             </div>
           </section>
 
