@@ -46,12 +46,14 @@ export const THEMES: Theme[] = [
   },
 ];
 
-// Updated with currently stable live stream IDs
+// Updated with currently stable live stream IDs and playlists
 export const YOUTUBE_PLAYLISTS = [
   { id: '5yx6BWlEVcY', name: 'Chillhop - Jazzy/Lofi' },
   { id: 'jfKfPfyJRdk', name: 'Lofi Girl - Beats to Relax/Study' },
   { id: 'lP26UCnoHg', name: 'Coffee Shop Jazz' },
   { id: '4xDzrJKXOOY', name: 'Synthwave Radio' },
+  { id: 'playlist_PLwR9oHZKaCC2Aae_c1E36xOWYS96p_I4y', name: 'Lofi Hip Hop Playlist' },
+  { id: 'playlist_PLOzDu-MXXLliO9fBNZOQTBDddoA3FzZUo', name: 'Ambient Study Music' },
 ];
 
 export const SPOTIFY_PLAYLISTS = [

@@ -33,12 +33,24 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
     setCustomError('');
 
     if (activeTab === MediaType.YOUTUBE) {
-      // Regex to extract video ID from various YouTube URL formats
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-      const match = customInput.match(regExp);
+      // Extract video ID from various YouTube URL formats
+      const videoRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+      const videoMatch = customInput.match(videoRegExp);
+      
+      // Extract playlist ID from YouTube playlist URLs
+      const playlistRegExp = /[?&]list=([^#&?]+)/;
+      const playlistMatch = customInput.match(playlistRegExp);
 
-      if (match && match[2].length === 11) {
-        const id = match[2];
+      if (playlistMatch && playlistMatch[1]) {
+        // Playlist URL found
+        const id = `playlist_${playlistMatch[1]}`;
+        const newRef = { id, name: `Custom Playlist ${youtubeLists.length + 1}` };
+        setYoutubeLists(prev => [newRef, ...prev]);
+        setSelectedId(id);
+        setCustomInput('');
+      } else if (videoMatch && videoMatch[2].length === 11) {
+        // Video URL found
+        const id = videoMatch[2];
         const newRef = { id, name: `Custom Video ${youtubeLists.length + 1}` };
         setYoutubeLists(prev => [newRef, ...prev]); // Add to top
         setSelectedId(id);
@@ -136,7 +148,7 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
 
               <div>
                  <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2 block ml-1">
-                   {activeTab === MediaType.SPOTIFY ? 'Select Playlist' : 'Select Video'}
+                   {activeTab === MediaType.SPOTIFY ? 'Select Playlist' : 'Select Video/Playlist'}
                  </label>
                  <select 
                    value={selectedId}
@@ -166,7 +178,10 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
                    <iframe 
                      width="100%" 
                      height="100%" 
-                     src={`https://www.youtube.com/embed/${selectedId}?origin=${window.location.origin}`} 
+                     src={selectedId.startsWith('playlist_') 
+                       ? `https://www.youtube.com/embed/videoseries?list=${selectedId.replace('playlist_', '')}&origin=${window.location.origin}`
+                       : `https://www.youtube.com/embed/${selectedId}?origin=${window.location.origin}`
+                     } 
                      title="YouTube video player" 
                      frameBorder="0" 
                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
