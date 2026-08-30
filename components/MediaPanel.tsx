@@ -1,125 +1,159 @@
 import { memo, useState } from 'react';
 import type { FC } from 'react';
 import { MediaType } from '../types';
-import { YOUTUBE_PLAYLISTS, SPOTIFY_PLAYLISTS } from '../constants';
+import {
+  SOUNDCLOUD_PLAYLISTS,
+  SPOTIFY_PLAYLISTS,
+  YOUTUBE_PLAYLISTS
+} from '../constants';
 
 const MediaPanel: FC = () => {
   const [activeTab, setActiveTab] = useState<MediaType>(MediaType.NONE);
-  const [selectedId, setSelectedId] = useState<string>('');
-  
-  // State for Custom URL input
+  const [selectedId, setSelectedId] = useState('');
   const [customInput, setCustomInput] = useState('');
   const [customName, setCustomName] = useState('');
   const [customError, setCustomError] = useState('');
-  
-  // State for editing playlist names
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
-  
-  // Local state for playlists (initialized with constants, but extendable)
   const [youtubeLists, setYoutubeLists] = useState(YOUTUBE_PLAYLISTS);
   const [spotifyLists, setSpotifyLists] = useState(SPOTIFY_PLAYLISTS);
+  const [soundcloudLists, setSoundcloudLists] = useState(SOUNDCLOUD_PLAYLISTS);
 
-  // Default to first item if switching tabs
+  const currentLists = activeTab === MediaType.YOUTUBE
+    ? youtubeLists
+    : activeTab === MediaType.SPOTIFY
+      ? spotifyLists
+      : activeTab === MediaType.SOUNDCLOUD
+        ? soundcloudLists
+        : [];
+
   const handleTabChange = (type: MediaType) => {
+    const nextLists = type === MediaType.YOUTUBE
+      ? youtubeLists
+      : type === MediaType.SPOTIFY
+        ? spotifyLists
+        : type === MediaType.SOUNDCLOUD
+          ? soundcloudLists
+          : [];
+
     setActiveTab(type);
+    setSelectedId(nextLists[0]?.id ?? '');
     setCustomError('');
     setCustomInput('');
     setCustomName('');
-    if (type === MediaType.YOUTUBE && !selectedId && youtubeLists.length > 0) setSelectedId(youtubeLists[0].id);
-    else if (type === MediaType.SPOTIFY && !selectedId && spotifyLists.length > 0) setSelectedId(spotifyLists[0].id);
-    else if (type === MediaType.NONE) setSelectedId('');
+    setIsEditing(false);
+    setEditName('');
+  };
+
+  const clearCustomForm = () => {
+    setCustomInput('');
+    setCustomName('');
   };
 
   const handleAddCustom = () => {
-    if (!customInput.trim()) return;
-    setCustomError('');
+    const input = customInput.trim();
+    if (!input) return;
 
-    const displayName = customName.trim() || null;
+    setCustomError('');
+    const displayName = customName.trim();
 
     if (activeTab === MediaType.YOUTUBE) {
-      // Extract video ID from various YouTube URL formats
-      const videoRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-      const videoMatch = customInput.match(videoRegExp);
-      
-      // Extract playlist ID from YouTube playlist URLs
-      const playlistRegExp = /[?&]list=([^#&?]+)/;
-      const playlistMatch = customInput.match(playlistRegExp);
+      const videoMatch = input.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
+      const playlistMatch = input.match(/[?&]list=([^#&?]+)/);
 
-      if (playlistMatch && playlistMatch[1]) {
-        // Playlist URL found
+      if (playlistMatch?.[1]) {
         const id = `playlist_${playlistMatch[1]}`;
-        const newRef = { id, name: displayName || `Custom Playlist ${youtubeLists.length + 1}` };
-        setYoutubeLists(prev => [newRef, ...prev]);
+        setYoutubeLists(previous => [{
+          id,
+          name: displayName || `Custom Playlist ${previous.length + 1}`
+        }, ...previous]);
         setSelectedId(id);
-        setCustomInput('');
-        setCustomName('');
-      } else if (videoMatch && videoMatch[2].length === 11) {
-        // Video URL found
+        clearCustomForm();
+      } else if (videoMatch?.[2]?.length === 11) {
         const id = videoMatch[2];
-        const newRef = { id, name: displayName || `Custom Video ${youtubeLists.length + 1}` };
-        setYoutubeLists(prev => [newRef, ...prev]); // Add to top
+        setYoutubeLists(previous => [{
+          id,
+          name: displayName || `Custom Video ${previous.length + 1}`
+        }, ...previous]);
         setSelectedId(id);
-        setCustomInput('');
-        setCustomName('');
+        clearCustomForm();
       } else {
         setCustomError('Invalid YouTube URL');
       }
-    } else if (activeTab === MediaType.SPOTIFY) {
-      // Regex to extract playlist/album/track ID
-      // Supports open.spotify.com/playlist/ID
-      const regExp = /open\.spotify\.com\/(playlist|album|track)\/([a-zA-Z0-9]+)/;
-      const match = customInput.match(regExp);
+      return;
+    }
 
-      if (match && match[2]) {
-        const id = match[2];
-        const newRef = { id, name: displayName || `Custom Playlist ${spotifyLists.length + 1}` };
-        setSpotifyLists(prev => [newRef, ...prev]);
+    if (activeTab === MediaType.SPOTIFY) {
+      const match = input.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/);
+      if (!match?.[1]) {
+        setCustomError('Invalid Spotify playlist URL');
+        return;
+      }
+
+      const id = match[1];
+      setSpotifyLists(previous => [{
+        id,
+        name: displayName || `Custom Playlist ${previous.length + 1}`
+      }, ...previous]);
+      setSelectedId(id);
+      clearCustomForm();
+      return;
+    }
+
+    if (activeTab === MediaType.SOUNDCLOUD) {
+      try {
+        const url = new URL(input);
+        const soundcloudHost = url.hostname === 'soundcloud.com' || url.hostname.endsWith('.soundcloud.com');
+        const playlistPath = /^\/[^/]+\/sets\/[^/]+\/?$/.test(url.pathname);
+        if (url.protocol !== 'https:' || !soundcloudHost || !playlistPath) {
+          throw new Error('Invalid SoundCloud playlist URL');
+        }
+
+        const id = `${url.origin}${url.pathname.replace(/\/$/, '')}`;
+        setSoundcloudLists(previous => [{
+          id,
+          name: displayName || `Custom Playlist ${previous.length + 1}`
+        }, ...previous]);
         setSelectedId(id);
-        setCustomInput('');
-        setCustomName('');
-      } else {
-        setCustomError('Invalid Spotify URL (Use "Share > Copy link to playlist")');
+        clearCustomForm();
+      } catch {
+        setCustomError('Invalid SoundCloud playlist URL (use a soundcloud.com/.../sets/... link)');
       }
     }
   };
 
   const handleRename = () => {
-    if (!editName.trim() || !selectedId) return;
-    
-    if (activeTab === MediaType.YOUTUBE) {
-      setYoutubeLists(prev => prev.map(item => 
-        item.id === selectedId ? { ...item, name: editName.trim() } : item
-      ));
-    } else if (activeTab === MediaType.SPOTIFY) {
-      setSpotifyLists(prev => prev.map(item => 
-        item.id === selectedId ? { ...item, name: editName.trim() } : item
-      ));
-    }
-    
+    const name = editName.trim();
+    if (!name || !selectedId) return;
+
+    const renameSelected = (items: typeof currentLists) => items.map(item =>
+      item.id === selectedId ? { ...item, name } : item
+    );
+
+    if (activeTab === MediaType.YOUTUBE) setYoutubeLists(renameSelected);
+    if (activeTab === MediaType.SPOTIFY) setSpotifyLists(renameSelected);
+    if (activeTab === MediaType.SOUNDCLOUD) setSoundcloudLists(renameSelected);
     setIsEditing(false);
     setEditName('');
   };
 
   const handleDelete = () => {
     if (!selectedId) return;
-    
-    if (activeTab === MediaType.YOUTUBE) {
-      setYoutubeLists(prev => prev.filter(item => item.id !== selectedId));
-      setSelectedId(youtubeLists.length > 1 ? youtubeLists[0].id : '');
-    } else if (activeTab === MediaType.SPOTIFY) {
-      setSpotifyLists(prev => prev.filter(item => item.id !== selectedId));
-      setSelectedId(spotifyLists.length > 1 ? spotifyLists[0].id : '');
-    }
+    const remaining = currentLists.filter(item => item.id !== selectedId);
+
+    if (activeTab === MediaType.YOUTUBE) setYoutubeLists(remaining);
+    if (activeTab === MediaType.SPOTIFY) setSpotifyLists(remaining);
+    if (activeTab === MediaType.SOUNDCLOUD) setSoundcloudLists(remaining);
+    setSelectedId(remaining[0]?.id ?? '');
+    setIsEditing(false);
+    setEditName('');
   };
 
   const startEditing = () => {
-    const currentList = activeTab === MediaType.YOUTUBE ? youtubeLists : spotifyLists;
-    const currentItem = currentList.find(item => item.id === selectedId);
-    if (currentItem) {
-      setEditName(currentItem.name);
-      setIsEditing(true);
-    }
+    const currentItem = currentLists.find(item => item.id === selectedId);
+    if (!currentItem) return;
+    setEditName(currentItem.name);
+    setIsEditing(true);
   };
 
   return (
@@ -134,26 +168,43 @@ const MediaPanel: FC = () => {
           </div>
        </div>
 
-       <div className="grid grid-cols-3 gap-3 mb-8 p-1.5 bg-black/40 rounded-2xl border border-white/5">
-         <button 
+       <div className="grid grid-cols-2 gap-2 mb-6 p-1.5 bg-black/40 rounded-2xl border border-white/5">
+         <button
+           type="button"
            onClick={() => handleTabChange(MediaType.NONE)}
-           className={`py-2.5 text-sm rounded-xl transition-all font-semibold ${activeTab === MediaType.NONE ? 'bg-white/10 text-white shadow-md border border-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           aria-pressed={activeTab === MediaType.NONE}
+           className={`py-2.5 text-xs rounded-xl transition-colors font-semibold ${activeTab === MediaType.NONE ? 'bg-white/10 text-white shadow-md border border-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
          >
            Off
          </button>
-         <button 
+         <button
+           type="button"
            onClick={() => handleTabChange(MediaType.SPOTIFY)}
-           className={`py-2.5 text-sm rounded-xl transition-all flex items-center justify-center gap-2 font-semibold ${activeTab === MediaType.SPOTIFY ? 'bg-[#1DB954]/20 text-[#1DB954] shadow-md border border-[#1DB954]/30' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           aria-pressed={activeTab === MediaType.SPOTIFY}
+           className={`py-2.5 text-xs rounded-xl transition-colors flex items-center justify-center gap-2 font-semibold ${activeTab === MediaType.SPOTIFY ? 'bg-[#1DB954]/20 text-[#1DB954] shadow-md border border-[#1DB954]/30' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
          >
-           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.72 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.72 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
            Spotify
          </button>
-         <button 
+         <button
+           type="button"
            onClick={() => handleTabChange(MediaType.YOUTUBE)}
-           className={`py-2.5 text-sm rounded-xl transition-all flex items-center justify-center gap-2 font-semibold ${activeTab === MediaType.YOUTUBE ? 'bg-[#FF0000]/20 text-[#FF0000] shadow-md border border-[#FF0000]/30' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+           aria-pressed={activeTab === MediaType.YOUTUBE}
+           className={`py-2.5 text-xs rounded-xl transition-colors flex items-center justify-center gap-2 font-semibold ${activeTab === MediaType.YOUTUBE ? 'bg-[#FF0000]/20 text-[#FF5A5A] shadow-md border border-[#FF0000]/30' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
            YouTube
+         </button>
+         <button
+           type="button"
+           onClick={() => handleTabChange(MediaType.SOUNDCLOUD)}
+           aria-pressed={activeTab === MediaType.SOUNDCLOUD}
+           className={`py-2.5 text-xs rounded-xl transition-colors flex items-center justify-center gap-2 font-semibold ${activeTab === MediaType.SOUNDCLOUD ? 'bg-[#FF5500]/20 text-[#FF7A3D] shadow-md border border-[#FF5500]/30' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+         >
+           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+             <path d="M1.75 13.2c-.35 0-.64.28-.7.67L.5 16.5l.55 2.58c.06.39.35.67.7.67s.65-.28.7-.67L3.1 16.5l-.65-2.63c-.05-.39-.35-.67-.7-.67Zm2.75-2.25c-.43 0-.78.34-.83.8l-.52 4.75.52 4.58c.05.46.4.8.83.8.42 0 .77-.34.82-.8l.6-4.58-.6-4.75c-.05-.46-.4-.8-.82-.8Zm2.84-1.7c-.5 0-.9.4-.94.92L5.9 16.5l.5 5.92c.04.52.44.92.94.92s.9-.4.94-.92l.56-5.92-.56-6.33c-.04-.52-.44-.92-.94-.92Zm9.52 3.11a4.85 4.85 0 0 0-1.9.39 7.13 7.13 0 0 0-13.77-1.28 1.07 1.07 0 0 0-.06.36v7.73c0 .59.48 1.07 1.07 1.07h14.66a4.14 4.14 0 1 0 0-8.27Z"/>
+           </svg>
+           SoundCloud
          </button>
        </div>
 
@@ -168,7 +219,7 @@ const MediaPanel: FC = () => {
             </div>
           )}
 
-          {(activeTab === MediaType.SPOTIFY || activeTab === MediaType.YOUTUBE) && (
+          {(activeTab === MediaType.SPOTIFY || activeTab === MediaType.YOUTUBE || activeTab === MediaType.SOUNDCLOUD) && (
             <div className="animate-fade-in flex-1 flex flex-col gap-6">
               
               {/* Custom Input Section */}
@@ -187,11 +238,17 @@ const MediaPanel: FC = () => {
                        type="text"
                        value={customInput}
                        onChange={(e) => setCustomInput(e.target.value)}
-                       placeholder={activeTab === MediaType.YOUTUBE ? "Paste YouTube URL..." : "Paste Spotify Playlist Link..."}
+                       placeholder={
+                         activeTab === MediaType.YOUTUBE
+                           ? 'Paste YouTube URL...'
+                           : activeTab === MediaType.SOUNDCLOUD
+                             ? 'Paste SoundCloud Playlist Link...'
+                             : 'Paste Spotify Playlist Link...'
+                       }
                        className={`w-full bg-white/5 border ${customError ? 'border-red-400' : 'border-white/10'} text-white text-xs p-3 rounded-xl outline-none focus:border-white/30 transition-colors placeholder:text-white/30`}
                        onKeyDown={(e) => e.key === 'Enter' && handleAddCustom()}
                      />
-                     {customError && <span className="absolute -bottom-5 left-1 text-[10px] text-red-400">{customError}</span>}
+                     {customError && <span role="alert" className="absolute -bottom-5 left-1 text-[10px] text-red-400">{customError}</span>}
                    </div>
                    <button 
                       onClick={handleAddCustom}
@@ -205,7 +262,7 @@ const MediaPanel: FC = () => {
 
               <div>
                  <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3 block ml-1">
-                   {activeTab === MediaType.SPOTIFY ? 'Select Playlist' : 'Select Video/Playlist'}
+                   {activeTab === MediaType.YOUTUBE ? 'Select Video/Playlist' : 'Select Playlist'}
                  </label>
                  
                  {isEditing ? (
@@ -250,10 +307,11 @@ const MediaPanel: FC = () => {
                            backgroundSize: '16px'
                          }}
                        >
-                          {activeTab === MediaType.SPOTIFY 
-                            ? spotifyLists.map(p => <option key={p.id} value={p.id} className="bg-gray-900 text-white">{p.name}</option>)
-                            : youtubeLists.map(p => <option key={p.id} value={p.id} className="bg-gray-900 text-white">{p.name}</option>)
-                          }
+                          {currentLists.map(playlist => (
+                            <option key={playlist.id} value={playlist.id} className="bg-gray-900 text-white">
+                              {playlist.name}
+                            </option>
+                          ))}
                        </select>
                      </div>
                      {selectedId && (
@@ -282,6 +340,7 @@ const MediaPanel: FC = () => {
                 {activeTab === MediaType.SPOTIFY && selectedId && (
                     <iframe 
                       src={`https://open.spotify.com/embed/playlist/${selectedId}?utm_source=generator&theme=0`} 
+                      title="Spotify playlist player"
                       width="100%" 
                       height="100%" 
                       frameBorder="0" 
@@ -304,6 +363,18 @@ const MediaPanel: FC = () => {
                      allowFullScreen
                      className="absolute inset-0"
                    ></iframe>
+                )}
+                {activeTab === MediaType.SOUNDCLOUD && selectedId && (
+                  <iframe
+                    title="SoundCloud playlist player"
+                    src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(selectedId)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false`}
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    allow="autoplay"
+                    loading="lazy"
+                    className="absolute inset-0"
+                  ></iframe>
                 )}
               </div>
             </div>

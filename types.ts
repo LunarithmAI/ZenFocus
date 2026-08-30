@@ -47,4 +47,5 @@ export enum MediaType {
   NONE = 'none',
   YOUTUBE = 'youtube',
   SPOTIFY = 'spotify',
+  SOUNDCLOUD = 'soundcloud',
 }

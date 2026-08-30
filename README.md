@@ -4,13 +4,13 @@ A high-fidelity Pomodoro timer with themes, embedded media, and AI-assisted task
 
 ## Summary
 
-ZenFocus is a Pomodoro-style productivity timer built with React and Vite. It provides customizable themes and backgrounds, embedded media support (Spotify/YouTube), and AI task breakdown through the Gemini REST API.
+ZenFocus is a Pomodoro-style productivity timer built with React and Vite. It provides customizable themes and backgrounds, embedded media support (Spotify/YouTube/SoundCloud), and AI task breakdown through the Gemini REST API.
 
 ## Features
 
 - Configurable Pomodoro timer and short/long breaks
 - Customizable themes and background media
-- Embedded media panel for Spotify / YouTube (`components/MediaPanel.tsx:1`)
+- Embedded media panel for Spotify, YouTube, and SoundCloud playlists (`components/MediaPanel.tsx:1`)
 - AI task breakdown using Gemini (`services/geminiService.ts:1`)
 - Minimal, fast UI with React + Vite
 

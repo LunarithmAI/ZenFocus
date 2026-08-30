@@ -61,3 +61,14 @@ export const SPOTIFY_PLAYLISTS = [
   { id: '37i9dQZF1DX8Uebhn9wzrS', name: 'Chill Lofi Study Beats' },
   { id: '37i9dQZF1DWZeKCadgRdKQ', name: 'Deep Focus' },
 ];
+
+export const SOUNDCLOUD_PLAYLISTS = [
+  {
+    id: 'https://soundcloud.com/lematworks/sets/flow',
+    name: 'Flow State — Deep Focus'
+  },
+  {
+    id: 'https://soundcloud.com/yacha-toueg/sets/ambient-focus-sets',
+    name: 'Ambient Focus'
+  }
+];
