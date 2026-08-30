@@ -1,4 +1,5 @@
-import React from 'react';
+import { memo } from 'react';
+import type { FC } from 'react';
 import { TimerMode } from '../types';
 
 interface TimerDisplayProps {
@@ -11,7 +12,7 @@ interface TimerDisplayProps {
   onReset: () => void;
 }
 
-const TimerDisplay: React.FC<TimerDisplayProps> = ({ 
+const TimerDisplay: FC<TimerDisplayProps> = ({
   timeLeft, 
   totalTime, 
   mode, 
@@ -28,7 +29,10 @@ const TimerDisplay: React.FC<TimerDisplayProps> = ({
   // Increased radius significantly to cover text/buttons
   const radius = 250; 
   const circumference = 2 * Math.PI * radius;
-  const progress = timeLeft / totalTime;
+  const progressTime = ecoMode && timeLeft > 0
+    ? Math.min(totalTime, Math.ceil(timeLeft / 60) * 60)
+    : timeLeft;
+  const progress = progressTime / totalTime;
   const dashOffset = circumference * (1 - progress);
 
   // Dynamic Color based on mode
@@ -55,7 +59,7 @@ const TimerDisplay: React.FC<TimerDisplayProps> = ({
     <div className="flex flex-col items-center justify-center relative transform scale-[0.7] sm:scale-90 lg:scale-[0.85] xl:scale-100 transition-transform duration-500">
       <div className="relative w-[500px] h-[500px] md:w-[580px] md:h-[580px] flex items-center justify-center">
         {/* SVG Circle Background */}
-        <svg className="w-full h-full transform -rotate-90 drop-shadow-2xl">
+        <svg className="w-full h-full transform -rotate-90">
           <circle
             cx="50%"
             cy="50%"
@@ -76,14 +80,14 @@ const TimerDisplay: React.FC<TimerDisplayProps> = ({
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
             strokeLinecap="round"
-            className={`${getColor()} ${ecoMode ? '' : 'transition-all duration-1000 ease-linear'}`}
+            className={`${getColor()} ${ecoMode ? '' : 'transition-[stroke-dashoffset] duration-1000 ease-linear'}`}
           />
         </svg>
 
         {/* Digital Time & Controls Overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-white select-none">
           <h2 className="text-base md:text-lg font-bold uppercase tracking-[0.3em] opacity-50 mb-6">{getLabel()}</h2>
-          <div className="text-[7rem] md:text-[9rem] lg:text-[10rem] font-bold font-mono tracking-tighter tabular-nums leading-none filter drop-shadow-lg">
+          <div className="text-[7rem] md:text-[9rem] lg:text-[10rem] font-bold font-mono tracking-tighter tabular-nums leading-none">
             {formattedTime}
           </div>
           <div className="mt-12 flex items-center gap-6">
@@ -107,4 +111,4 @@ const TimerDisplay: React.FC<TimerDisplayProps> = ({
   );
 };
 
-export default TimerDisplay;
+export default memo(TimerDisplay);

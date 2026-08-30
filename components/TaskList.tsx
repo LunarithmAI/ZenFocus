@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
-import { Task, AIModelConfig } from '../types';
+import { memo, useState } from 'react';
 import { breakDownTask } from '../services/geminiService';
+import type { Dispatch, FC, SetStateAction } from 'react';
+import type { AIModelConfig, Task } from '../types';
 
 interface TaskListProps {
   tasks: Task[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  setTasks: Dispatch<SetStateAction<Task[]>>;
   activeTaskId: string | null;
   setActiveTaskId: (id: string | null) => void;
   apiKey?: string;
   modelConfig?: AIModelConfig;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setActiveTaskId, apiKey, modelConfig }) => {
+const TaskList: FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setActiveTaskId, apiKey, modelConfig }) => {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiInput, setShowAiInput] = useState(false);
@@ -214,4 +215,4 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, setTasks, activeTaskId, setA
   );
 };
 
-export default TaskList;
+export default memo(TaskList);

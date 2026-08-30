@@ -1,13 +1,23 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { TimerMode, Task, Settings, Theme, AIModelConfig } from './types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FC } from 'react';
+import { TimerMode } from './types';
+import type { AIModelConfig, Settings, Task, Theme } from './types';
 import { DEFAULT_SETTINGS, THEMES } from './constants';
 import TimerDisplay from './components/TimerDisplay';
 import TaskList from './components/TaskList';
 import MediaPanel from './components/MediaPanel';
 import SettingsModal from './components/SettingsModal';
 
-const App: React.FC = () => {
+declare global {
+  interface Window {
+    documentPictureInPicture?: {
+      requestWindow: (options: { width: number; height: number }) => Promise<Window>;
+    };
+  }
+}
+
+const App: FC = () => {
   // State: Settings
   const [settings, setSettings] = useState<Settings>(() => {
     try {
@@ -107,18 +117,17 @@ const App: React.FC = () => {
     localStorage.setItem('zenfocus_active_theme_id', theme.id);
   }, [theme]);
 
-  const handleAddCustomTheme = (newTheme: Theme) => {
+  const handleAddCustomTheme = useCallback((newTheme: Theme) => {
     setCustomThemes(prev => [...prev, newTheme]);
-    setTheme(newTheme); // Automatically select the new theme
-  };
+    setTheme(newTheme);
+  }, []);
 
-  const handleDeleteCustomTheme = (themeId: string) => {
-    setCustomThemes(prev => prev.filter(t => t.id !== themeId));
-    // If the deleted theme was active, revert to default
+  const handleDeleteCustomTheme = useCallback((themeId: string) => {
+    setCustomThemes(prev => prev.filter(candidate => candidate.id !== themeId));
     if (theme.id === themeId) {
       setTheme(THEMES[0]);
     }
-  };
+  }, [theme.id]);
 
   // State: Timer
   const [mode, setMode] = useState<TimerMode>(TimerMode.POMODORO);
@@ -130,41 +139,52 @@ const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
-  // Refs for timer interval and PiP
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Refs for accurate timer scheduling, PiP, and the reusable notification audio graph.
+  const timerDeadlineRef = useRef<number | null>(null);
   const pipWindowRef = useRef<Window | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const updatePiPRef = useRef<() => void>(() => {});
+  const wakeTimerRef = useRef<() => void>(() => {});
 
-  // Audio for notifications
-  const playNotification = () => {
+  const playNotification = useCallback(() => {
     if (!settings.soundEnabled) return;
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
-    // Function to play a single beep
-    const beep = (startTime: number, freq: number, duration: number) => {
+    const audioContext = audioContextRef.current ?? new AudioContext();
+    audioContextRef.current = audioContext;
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume();
+    }
+
+    const beep = (startTime: number, frequency: number, duration: number) => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
-      
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(freq, startTime);
-      
-      // Envelope to avoid clicking
+      oscillator.frequency.setValueAtTime(frequency, startTime);
       gainNode.gain.setValueAtTime(0, startTime);
       gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
       gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-      
+      oscillator.addEventListener('ended', () => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+      }, { once: true });
       oscillator.start(startTime);
       oscillator.stop(startTime + duration);
     };
 
-    // Play a double beep sequence
     const now = audioContext.currentTime;
-    beep(now, 880, 0.4); // First beep
-    beep(now + 0.5, 880, 0.4); // Second beep
-  };
+    beep(now, 880, 0.4);
+    beep(now + 0.5, 880, 0.4);
+  }, [settings.soundEnabled]);
+
+  useEffect(() => () => {
+    if (audioContextRef.current) {
+      void audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+  }, []);
 
   // Helper to get duration for current mode
   const getDuration = useCallback((currentMode: TimerMode) => {
@@ -174,98 +194,145 @@ const App: React.FC = () => {
       case TimerMode.LONG_BREAK: return settings.longBreakTime * 60;
       default: return 25 * 60;
     }
-  }, [settings]);
+  }, [settings.longBreakTime, settings.pomodoroTime, settings.shortBreakTime]);
 
-  // Handle Mode Switching
-  const switchMode = (newMode: TimerMode) => {
+  const switchMode = useCallback((newMode: TimerMode) => {
+    timerDeadlineRef.current = null;
     setMode(newMode);
     setIsActive(false);
     setTimeLeft(getDuration(newMode));
-  };
+  }, [getDuration]);
 
-  // Handle Timer Completion
-  const handleComplete = () => {
+  const handleComplete = useCallback(() => {
+    timerDeadlineRef.current = null;
     playNotification();
     setIsActive(false);
 
-    // Trigger Browser Notification
     if (settings.browserNotifications && 'Notification' in window && Notification.permission === 'granted') {
       const title = mode === TimerMode.POMODORO ? 'Focus Session Complete!' : 'Break Over!';
-      const body = mode === TimerMode.POMODORO 
-        ? 'Great job! Time to take a break.' 
+      const body = mode === TimerMode.POMODORO
+        ? 'Great job! Time to take a break.'
         : 'Break is finished. Ready to focus?';
-      
       new Notification(title, { body });
     }
 
     if (mode === TimerMode.POMODORO) {
       const newCount = sessionsCompleted + 1;
       setSessionsCompleted(newCount);
-      
-      // Update active task stats
+
       if (activeTaskId) {
-        setTasks(prev => prev.map(t => 
-          t.id === activeTaskId ? { ...t, pomodoros: (t.pomodoros || 0) + 1 } : t
+        setTasks(prev => prev.map(task =>
+          task.id === activeTaskId
+            ? { ...task, pomodoros: (task.pomodoros || 0) + 1 }
+            : task
         ));
       }
 
-      // Determine next break
-      if (newCount % settings.longBreakInterval === 0) {
-        if (settings.autoStartBreaks) {
-           setMode(TimerMode.LONG_BREAK);
-           setTimeLeft(getDuration(TimerMode.LONG_BREAK));
-           setIsActive(true);
-        } else {
-           switchMode(TimerMode.LONG_BREAK);
-        }
+      const nextMode = newCount % settings.longBreakInterval === 0
+        ? TimerMode.LONG_BREAK
+        : TimerMode.SHORT_BREAK;
+      if (settings.autoStartBreaks) {
+        const nextDuration = getDuration(nextMode);
+        timerDeadlineRef.current = Date.now() + nextDuration * 1000;
+        setMode(nextMode);
+        setTimeLeft(nextDuration);
+        setIsActive(true);
+        wakeTimerRef.current();
       } else {
-        if (settings.autoStartBreaks) {
-           setMode(TimerMode.SHORT_BREAK);
-           setTimeLeft(getDuration(TimerMode.SHORT_BREAK));
-           setIsActive(true);
-        } else {
-           switchMode(TimerMode.SHORT_BREAK);
-        }
+        switchMode(nextMode);
       }
-    } else {
-      // Break is over, back to Pomodoro
-      if (settings.autoStartPomodoros) {
-         setMode(TimerMode.POMODORO);
-         setTimeLeft(getDuration(TimerMode.POMODORO));
-         setIsActive(true);
-      } else {
-         switchMode(TimerMode.POMODORO);
-      }
+      return;
     }
-  };
 
-  // Timer Tick
+    if (settings.autoStartPomodoros) {
+      const nextDuration = getDuration(TimerMode.POMODORO);
+      timerDeadlineRef.current = Date.now() + nextDuration * 1000;
+      setMode(TimerMode.POMODORO);
+      setTimeLeft(nextDuration);
+      setIsActive(true);
+      wakeTimerRef.current();
+    } else {
+      switchMode(TimerMode.POMODORO);
+    }
+  }, [
+    activeTaskId,
+    getDuration,
+    mode,
+    playNotification,
+    sessionsCompleted,
+    settings.autoStartBreaks,
+    settings.autoStartPomodoros,
+    settings.browserNotifications,
+    settings.longBreakInterval,
+    switchMode
+  ]);
+
   useEffect(() => {
-    if (isActive && timeLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isActive) {
+    if (!isActive) return;
+
+    if (timerDeadlineRef.current === null) {
+      timerDeadlineRef.current = Date.now() + timeLeft * 1000;
+    }
+
+    let timeoutId: number | undefined;
+    const tick = () => {
+      const deadline = timerDeadlineRef.current;
+      if (deadline === null) return;
+
+      const remainingMilliseconds = Math.max(0, deadline - Date.now());
+      const remainingSeconds = Math.ceil(remainingMilliseconds / 1000);
+      setTimeLeft(previous => previous === remainingSeconds ? previous : remainingSeconds);
+
+      if (remainingSeconds === 0) return;
+      const hiddenWithoutPiP = document.hidden && !pipWindowRef.current;
+      const delay = hiddenWithoutPiP
+        ? remainingMilliseconds
+        : Math.max(50, remainingMilliseconds % 1000 || 1000);
+      timeoutId = window.setTimeout(tick, delay);
+    };
+    const wakeTimer = () => {
+      window.clearTimeout(timeoutId);
+      tick();
+    };
+
+    wakeTimerRef.current = wakeTimer;
+    tick();
+    document.addEventListener('visibilitychange', wakeTimer);
+    return () => {
+      window.clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', wakeTimer);
+      wakeTimerRef.current = () => {};
+    };
+  }, [isActive]);
+
+  useEffect(() => {
+    if (isActive && timeLeft === 0) {
       handleComplete();
     }
+  }, [handleComplete, isActive, timeLeft]);
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isActive, timeLeft, settings.ecoMode]); 
-
-  // Update timeLeft when settings change (if timer not running)
   useEffect(() => {
     if (!isActive) {
       setTimeLeft(getDuration(mode));
     }
-  }, [settings.pomodoroTime, settings.shortBreakTime, settings.longBreakTime]);
+  }, [getDuration, isActive, mode]);
 
-  const toggleTimer = () => setIsActive(!isActive);
-  const resetTimer = () => {
+  const toggleTimer = useCallback(() => {
+    if (isActive) {
+      timerDeadlineRef.current = null;
+      setIsActive(false);
+      return;
+    }
+
+    timerDeadlineRef.current = Date.now() + timeLeft * 1000;
+    setIsActive(true);
+  }, [isActive, timeLeft]);
+
+  const resetTimer = useCallback(() => {
+    timerDeadlineRef.current = null;
     setIsActive(false);
     setTimeLeft(getDuration(mode));
-  };
+  }, [getDuration, mode]);
 
   // Picture-in-Picture - Cleanup when setting disabled
   useEffect(() => {
@@ -276,154 +343,126 @@ const App: React.FC = () => {
   }, [settings.autoPiPEnabled]);
 
   // Picture-in-Picture - Update content when timer/mode changes
-  useEffect(() => {
+  const updatePiP = useCallback(() => {
     if (!settings.autoPiPEnabled || !pipWindowRef.current) return;
 
-    const pipWindow = pipWindowRef.current;
-    const container = pipWindow.document.getElementById('pip-container');
+    const container = pipWindowRef.current.document.getElementById('pip-container');
+    pipWindowRef.current.document.body.style.backgroundImage = `url("${theme.bgImage}")`;
     if (!container) return;
+
+    if (!container.querySelector('#pip-time')) {
+      container.innerHTML = `
+        <style>
+          #pip-container button { font: inherit; }
+          #pip-container button:hover { filter: brightness(0.9); }
+          #pip-container button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+        </style>
+        <div style="display:flex;flex-direction:column;align-items:center;width:100%;height:100%">
+          <div style="display:flex;background:rgba(0,0,0,.65);padding:5px;border-radius:999px;margin-bottom:25px;border:1px solid rgba(255,255,255,.1);gap:3px">
+            <button id="pip-pomodoro" style="padding:7px 16px;border-radius:999px;font-size:10px;font-weight:700;transition:transform .2s,background-color .2s;border:none;cursor:pointer">Focus</button>
+            <button id="pip-short" style="padding:7px 13px;border-radius:999px;font-size:10px;font-weight:700;transition:transform .2s,background-color .2s;border:none;cursor:pointer">Short Break</button>
+            <button id="pip-long" style="padding:7px 13px;border-radius:999px;font-size:10px;font-weight:700;transition:transform .2s,background-color .2s;border:none;cursor:pointer">Long Break</button>
+          </div>
+          <div style="position:relative;width:260px;height:260px">
+            <svg width="260" height="260" style="transform:rotate(-90deg)" aria-hidden="true">
+              <circle cx="130" cy="130" r="125" stroke="rgba(255,255,255,.05)" stroke-width="5" fill="transparent"></circle>
+              <circle id="pip-progress" cx="130" cy="130" r="125" stroke-width="5" fill="transparent" stroke-linecap="round"></circle>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white">
+              <div id="pip-mode-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;opacity:.5;margin-bottom:12px"></div>
+              <div id="pip-time" style="font-size:52px;font-weight:700;font-family:ui-monospace,monospace;line-height:1;margin-bottom:18px;letter-spacing:-2px;font-variant-numeric:tabular-nums"></div>
+              <div id="pip-task" style="margin-bottom:16px;text-align:center;max-width:200px">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;opacity:.6;margin-bottom:6px">Working On</div>
+                <div id="pip-task-name" style="font-size:13px;font-weight:600;line-height:1.3;background:rgba(255,255,255,.12);padding:8px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.15);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <button id="pip-toggle" style="background:white;color:black;padding:9px 26px;border-radius:999px;font-weight:700;cursor:pointer;font-size:12px;transition:transform .2s,filter .2s;border:none"></button>
+                <button id="pip-reset" aria-label="Reset timer" style="background:rgba(255,255,255,.12);color:white;padding:9px;border-radius:999px;cursor:pointer;border:1px solid rgba(255,255,255,.12);transition:background-color .2s;width:38px;height:38px;display:flex;align-items:center;justify-content:center">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    const activeTaskName = activeTaskId
+      ? tasks.find(task => task.id === activeTaskId)?.title ?? ''
+      : '';
+    const modeDetails = {
+      [TimerMode.POMODORO]: { label: 'FOCUS TIME', stroke: 'rgb(248, 113, 113)' },
+      [TimerMode.SHORT_BREAK]: { label: 'SHORT BREAK', stroke: 'rgb(94, 234, 212)' },
+      [TimerMode.LONG_BREAK]: { label: 'LONG BREAK', stroke: 'rgb(96, 165, 250)' }
+    }[mode];
+    const circumference = 2 * Math.PI * 125;
+    const dashOffset = circumference * (1 - timeLeft / getDuration(mode));
 
-    // Get active task name
-    const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
-    const activeTaskName = activeTask ? activeTask.title : '';
+    const timeElement = container.querySelector<HTMLElement>('#pip-time');
+    const labelElement = container.querySelector<HTMLElement>('#pip-mode-label');
+    const progressElement = container.querySelector<SVGCircleElement>('#pip-progress');
+    const taskElement = container.querySelector<HTMLElement>('#pip-task');
+    const taskNameElement = container.querySelector<HTMLElement>('#pip-task-name');
+    const toggleButton = container.querySelector<HTMLButtonElement>('#pip-toggle');
+    const resetButton = container.querySelector<HTMLButtonElement>('#pip-reset');
 
-    let modeLabel = '';
-    let modeColor = '';
-    let strokeColor = '';
-    switch(mode) {
-      case TimerMode.POMODORO:
-        modeLabel = 'FOCUS TIME';
-        modeColor = '#f87171';
-        strokeColor = 'rgb(248, 113, 113)';
-        break;
-      case TimerMode.SHORT_BREAK:
-        modeLabel = 'SHORT BREAK';
-        modeColor = '#5eead4';
-        strokeColor = 'rgb(94, 234, 212)';
-        break;
-      case TimerMode.LONG_BREAK:
-        modeLabel = 'LONG BREAK';
-        modeColor = '#60a5fa';
-        strokeColor = 'rgb(96, 165, 250)';
-        break;
+    if (timeElement) timeElement.textContent = formattedTime;
+    if (labelElement) labelElement.textContent = modeDetails.label;
+    if (progressElement) {
+      progressElement.setAttribute('stroke', modeDetails.stroke);
+      progressElement.setAttribute('stroke-dasharray', circumference.toString());
+      progressElement.setAttribute('stroke-dashoffset', dashOffset.toString());
+      progressElement.style.transition = settings.ecoMode ? 'none' : 'stroke-dashoffset 1s linear';
     }
-
-    // Calculate progress for circle
-    const totalTime = getDuration(mode);
-    const progress = timeLeft / totalTime;
-    const radius = 120;
-    const circumference = 2 * Math.PI * radius;
-    const dashOffset = circumference * (1 - progress);
-
-    container.innerHTML = `
-      <div style="display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%;">
-        <!-- Mode Switcher -->
-        <div style="display: flex; background: rgba(0,0,0,0.4); backdrop-filter: blur(20px); padding: 5px; border-radius: 999px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.1); gap: 3px;">
-          <button id="pip-pomodoro" style="padding: 7px 16px; border-radius: 999px; font-size: 10px; font-weight: bold; transition: all 0.3s; border: none; cursor: pointer; ${mode === TimerMode.POMODORO ? 'background: white; color: black; transform: scale(1.05);' : 'background: transparent; color: rgba(255,255,255,0.5);'}">
-            Focus
-          </button>
-          <button id="pip-short" style="padding: 7px 13px; border-radius: 999px; font-size: 10px; font-weight: bold; transition: all 0.3s; border: none; cursor: pointer; ${mode === TimerMode.SHORT_BREAK ? 'background: white; color: black; transform: scale(1.05);' : 'background: transparent; color: rgba(255,255,255,0.5);'}">
-            Short Break
-          </button>
-          <button id="pip-long" style="padding: 7px 13px; border-radius: 999px; font-size: 10px; font-weight: bold; transition: all 0.3s; border: none; cursor: pointer; ${mode === TimerMode.LONG_BREAK ? 'background: white; color: black; transform: scale(1.05);' : 'background: transparent; color: rgba(255,255,255,0.5);'}">
-            Long Break
-          </button>
-        </div>
-
-        <!-- Circular Timer -->
-        <div style="position: relative; width: 260px; height: 260px; margin-bottom: 0px;">
-          <svg width="260" height="260" style="transform: rotate(-90deg);">
-            <!-- Background Circle -->
-            <circle cx="130" cy="130" r="125" stroke="currentColor" stroke-width="5" fill="transparent" style="color: rgba(255,255,255,0.05);" />
-            <!-- Progress Circle -->
-            <circle cx="130" cy="130" r="125" stroke="${strokeColor}" stroke-width="5" fill="transparent" stroke-dasharray="${circumference * (125/radius)}" stroke-dashoffset="${dashOffset * (125/radius)}" stroke-linecap="round" style="transition: stroke-dashoffset 1s linear;" />
-          </svg>
-          
-          <!-- Timer Content Overlay -->
-          <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;">
-            <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 2.5px; opacity: 0.5; margin-bottom: 12px;">${modeLabel}</div>
-            <div style="font-size: 52px; font-weight: bold; font-family: monospace; line-height: 1; margin-bottom: 18px; letter-spacing: -2px;">${formattedTime}</div>
-            
-            ${activeTaskName ? `
-            <!-- Active Task Display -->
-            <div style="margin-bottom: 16px; text-align: center; max-width: 200px;">
-              <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.6; margin-bottom: 6px;">Working On</div>
-              <div style="font-size: 13px; font-weight: 600; line-height: 1.3; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 8px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${activeTaskName}</div>
-            </div>
-            ` : ''}
-            
-            <!-- Control Buttons -->
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <button id="pip-toggle" style="background: white; color: black; padding: 9px 26px; border-radius: 999px; font-weight: bold; cursor: pointer; font-size: 12px; transition: all 0.2s; border: none; box-shadow: 0 0 20px rgba(255,255,255,0.2);">
-                ${isActive ? 'Pause' : 'Start'}
-              </button>
-              <button id="pip-reset" style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); color: white; padding: 9px; border-radius: 999px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Add event listeners
-    const toggleBtn = container.querySelector('#pip-toggle');
-    const resetBtn = container.querySelector('#pip-reset');
-    const pomodoroBtn = container.querySelector('#pip-pomodoro');
-    const shortBtn = container.querySelector('#pip-short');
-    const longBtn = container.querySelector('#pip-long');
-
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => toggleTimer());
-      toggleBtn.addEventListener('mouseenter', (e) => {
-        (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.9)';
-        (e.target as HTMLElement).style.transform = 'scale(1.05)';
-      });
-      toggleBtn.addEventListener('mouseleave', (e) => {
-        (e.target as HTMLElement).style.background = 'white';
-        (e.target as HTMLElement).style.transform = 'scale(1)';
-      });
+    if (taskElement) taskElement.hidden = !activeTaskName;
+    if (taskNameElement) taskNameElement.textContent = activeTaskName;
+    if (toggleButton) {
+      toggleButton.textContent = isActive ? 'Pause' : 'Start';
+      toggleButton.onclick = toggleTimer;
     }
+    if (resetButton) resetButton.onclick = resetTimer;
 
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => resetTimer());
-      resetBtn.addEventListener('mouseenter', (e) => {
-        (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.2)';
-        (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.3)';
-      });
-      resetBtn.addEventListener('mouseleave', (e) => {
-        (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
-        (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)';
-      });
-    }
-
-    const setupModeButton = (btn: Element | null, targetMode: TimerMode) => {
-      if (!btn) return;
-      btn.addEventListener('click', () => switchMode(targetMode));
-      if (mode !== targetMode) {
-        btn.addEventListener('mouseenter', (e) => {
-          (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.1)';
-        });
-        btn.addEventListener('mouseleave', (e) => {
-          (e.target as HTMLElement).style.background = 'transparent';
-        });
-      }
+    const configureModeButton = (id: string, targetMode: TimerMode) => {
+      const button = container.querySelector<HTMLButtonElement>(id);
+      if (!button) return;
+      const selected = mode === targetMode;
+      button.style.background = selected ? 'white' : 'transparent';
+      button.style.color = selected ? 'black' : 'rgba(255,255,255,.55)';
+      button.style.transform = selected ? 'scale(1.05)' : 'scale(1)';
+      button.setAttribute('aria-pressed', selected.toString());
+      button.onclick = () => switchMode(targetMode);
     };
 
-    setupModeButton(pomodoroBtn, TimerMode.POMODORO);
-    setupModeButton(shortBtn, TimerMode.SHORT_BREAK);
-    setupModeButton(longBtn, TimerMode.LONG_BREAK);
-  }, [settings.autoPiPEnabled, timeLeft, mode, isActive, toggleTimer, resetTimer, switchMode, getDuration, tasks, activeTaskId]);
+    configureModeButton('#pip-pomodoro', TimerMode.POMODORO);
+    configureModeButton('#pip-short', TimerMode.SHORT_BREAK);
+    configureModeButton('#pip-long', TimerMode.LONG_BREAK);
+  }, [
+    activeTaskId,
+    getDuration,
+    isActive,
+    mode,
+    resetTimer,
+    settings.autoPiPEnabled,
+    settings.ecoMode,
+    theme.bgImage,
+    switchMode,
+    tasks,
+    timeLeft,
+    toggleTimer
+  ]);
+  useEffect(() => {
+    updatePiPRef.current = updatePiP;
+    updatePiP();
+  }, [updatePiP]);
 
   // Picture-in-Picture - Handle visibility changes
   useEffect(() => {
     if (!settings.autoPiPEnabled) return;
 
-    const documentPiP = (window as any).documentPictureInPicture;
+    const documentPiP = window.documentPictureInPicture;
     if (!documentPiP) return;
 
     const openPiP = async () => {
@@ -463,7 +502,7 @@ const App: React.FC = () => {
 
         // Add dark overlay
         const overlay = pipWindow.document.createElement('div');
-        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 1;';
+        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.68); z-index: 1;';
         pipWindow.document.body.appendChild(overlay);
 
         // Create PiP content container
@@ -472,6 +511,8 @@ const App: React.FC = () => {
         container.style.cssText = 'position: relative; z-index: 10; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-family: system-ui; padding: 20px; box-sizing: border-box;';
         
         pipWindow.document.body.appendChild(container);
+        updatePiPRef.current();
+        wakeTimerRef.current();
 
         // Handle PiP window close
         pipWindow.addEventListener('pagehide', () => {
@@ -501,19 +542,22 @@ const App: React.FC = () => {
         pipWindowRef.current = null;
       }
     };
-  }, [settings.autoPiPEnabled, theme]);
+  }, [settings.autoPiPEnabled]);
 
-  const allThemes = [...THEMES, ...customThemes];
+  const allThemes = useMemo(() => [...THEMES, ...customThemes], [customThemes]);
+  const openSettings = useCallback(() => setShowSettings(true), []);
+  const closeSettings = useCallback(() => setShowSettings(false), []);
 
   return (
     <div className="relative min-h-screen text-white transition-all duration-700 ease-in-out font-sans overflow-hidden">
       {/* Background Layer */}
       <div className="fixed inset-0 z-0">
          <div 
-           className="absolute inset-0 bg-cover bg-center transition-all duration-1000 transform scale-105"
-           style={{ 
+           className="absolute inset-0 bg-cover bg-center transition-[background-image,filter,transform] duration-700"
+           style={{
              backgroundImage: `url(${theme.bgImage})`,
-             filter: `blur(${settings.backgroundBlur}px)`
+             filter: settings.backgroundBlur > 0 ? `blur(${settings.backgroundBlur}px)` : undefined,
+             transform: settings.backgroundBlur > 0 ? 'scale(1.05)' : undefined
            }}
          />
          {/* Slightly darker overlay for better contrast */}
@@ -542,7 +586,7 @@ const App: React.FC = () => {
               </div>
               <div className="h-10 w-px bg-white/10 hidden md:block"></div>
               <button 
-                onClick={() => setShowSettings(true)}
+                onClick={openSettings}
                 className="group p-4 hover:bg-white/10 rounded-2xl transition-all border border-transparent hover:border-white/10 active:scale-95"
                 aria-label="Settings"
               >
@@ -617,21 +661,22 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <SettingsModal 
-        isOpen={showSettings} 
-        onClose={() => setShowSettings(false)}
-        settings={settings}
-        onUpdateSettings={setSettings}
-        currentTheme={theme}
-        onUpdateTheme={setTheme}
-        themes={allThemes}
-        onAddCustomTheme={handleAddCustomTheme}
-        onDeleteCustomTheme={handleDeleteCustomTheme}
-        apiKey={geminiApiKey}
-        onUpdateApiKey={setGeminiApiKey}
-        modelConfig={modelConfig}
-        onUpdateModelConfig={setModelConfig}
-      />
+      {showSettings && (
+        <SettingsModal
+          onClose={closeSettings}
+          settings={settings}
+          onUpdateSettings={setSettings}
+          currentTheme={theme}
+          onUpdateTheme={setTheme}
+          themes={allThemes}
+          onAddCustomTheme={handleAddCustomTheme}
+          onDeleteCustomTheme={handleDeleteCustomTheme}
+          apiKey={geminiApiKey}
+          onUpdateApiKey={setGeminiApiKey}
+          modelConfig={modelConfig}
+          onUpdateModelConfig={setModelConfig}
+        />
+      )}
     </div>
   );
 };

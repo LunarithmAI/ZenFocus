@@ -1,9 +1,8 @@
-
-import React, { useState } from 'react';
-import { Settings, Theme, AIModelConfig } from '../types';
+import { memo, useState } from 'react';
+import type { ChangeEvent, FC } from 'react';
+import type { AIModelConfig, Settings, Theme } from '../types';
 
 interface SettingsModalProps {
-  isOpen: boolean;
   onClose: () => void;
   settings: Settings;
   onUpdateSettings: (newSettings: Settings) => void;
@@ -18,8 +17,50 @@ interface SettingsModalProps {
   onUpdateModelConfig: (config: AIModelConfig) => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
+const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+  const { promise, resolve, reject } = Promise.withResolvers<Blob>();
+  canvas.toBlob(
+    blob => blob ? resolve(blob) : reject(new Error('Image encoding failed')),
+    'image/webp',
+    0.82
+  );
+  return promise;
+};
+const blobToDataUrl = (blob: Blob): Promise<string> => {
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  const reader = new FileReader();
+  reader.onload = () => (
+    typeof reader.result === 'string'
+      ? resolve(reader.result)
+      : reject(new Error('Image conversion failed'))
+  );
+  reader.onerror = () => reject(reader.error ?? new Error('Image conversion failed'));
+  reader.readAsDataURL(blob);
+  return promise;
+};
+
+const compressImage = async (file: File): Promise<string> => {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const scale = Math.min(1, 2560 / bitmap.width, 1440 / bitmap.height);
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) throw new Error('Canvas is unavailable');
+    context.drawImage(bitmap, 0, 0, width, height);
+
+    const compressedBlob = await canvasToBlob(canvas);
+    return await blobToDataUrl(compressedBlob);
+  } finally {
+    bitmap.close();
+  }
+};
+
+const SettingsModal: FC<SettingsModalProps> = ({
   onClose,
   settings,
   onUpdateSettings,
@@ -33,7 +74,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   modelConfig,
   onUpdateModelConfig
 }) => {
-  if (!isOpen) return null;
 
   const [activeTab, setActiveTab] = useState<'general' | 'llm'>('general');
   const [isAddingTheme, setIsAddingTheme] = useState(false);
@@ -47,61 +87,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tempApiBaseUrl, setTempApiBaseUrl] = useState(modelConfig.apiBaseUrl || '');
   const [tempSupportsStructuredOutput, setTempSupportsStructuredOutput] = useState(modelConfig.supportsStructuredOutput ?? true);
 
-  const handleChange = (key: keyof Settings, value: any) => {
+  const handleChange = <Key extends keyof Settings>(key: Key, value: Settings[Key]) => {
     onUpdateSettings({ ...settings, [key]: value });
   };
 
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Max dimensions for 4K theme backgrounds
-          const MAX_WIDTH = 3840;
-          const MAX_HEIGHT = 2160;
-          
-          // Scale down if needed (rescaling)
-          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-            const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
-            width = width * ratio;
-            height = height * ratio;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          // JPEG compression with adaptive quality
-          // Start with high quality and reduce if data URL is too large
-          let quality = 0.92;
-          let dataUrl = canvas.toDataURL('image/jpeg', quality);
-          
-          // Progressive quality reduction if still too large
-          // Target: keep under reasonable size for localStorage
-          while (dataUrl.length > 5 * 1024 * 1024 && quality > 0.5) {
-            quality -= 0.05;
-            dataUrl = canvas.toDataURL('image/jpeg', quality);
-          }
-          
-          resolve(dataUrl);
-        };
-        img.onerror = reject;
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (file) {
       try {
         const compressedDataUrl = await compressImage(file);
@@ -574,4 +566,4 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   );
 };
 
-export default SettingsModal;
+export default memo(SettingsModal);

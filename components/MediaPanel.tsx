@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import { memo, useState } from 'react';
+import type { FC } from 'react';
 import { MediaType } from '../types';
 import { YOUTUBE_PLAYLISTS, SPOTIFY_PLAYLISTS } from '../constants';
 
-interface MediaPanelProps {
-  // empty for now
-}
-
-const MediaPanel: React.FC<MediaPanelProps> = () => {
+const MediaPanel: FC = () => {
   const [activeTab, setActiveTab] = useState<MediaType>(MediaType.NONE);
   const [selectedId, setSelectedId] = useState<string>('');
   
@@ -316,4 +313,4 @@ const MediaPanel: React.FC<MediaPanelProps> = () => {
   );
 };
 
-export default MediaPanel;
+export default memo(MediaPanel);

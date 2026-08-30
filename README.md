@@ -4,7 +4,7 @@ A high-fidelity Pomodoro timer with themes, embedded media, and AI-assisted task
 
 ## Summary
 
-ZenFocus is a Pomodoro-style productivity timer built with React and Vite. It provides customizable themes and backgrounds, embedded media support (Spotify/YouTube), and an AI-powered task breakdown feature that uses Google Gemini via `@google/genai`.
+ZenFocus is a Pomodoro-style productivity timer built with React and Vite. It provides customizable themes and backgrounds, embedded media support (Spotify/YouTube), and AI task breakdown through the Gemini REST API.
 
 ## Features
 
@@ -40,11 +40,11 @@ ZenFocus is a Pomodoro-style productivity timer built with React and Vite. It pr
 
 ## Environment & API keys
 
-This project may use Google’s Gemini API via `@google/genai`. The exact credentials and environment variable names are referenced in `services/geminiService.ts:1`. Do not commit secret keys to the repository — use local `.env` files and CI secrets.
+This project can call Google’s Gemini REST API directly. The credential handling is implemented in `services/geminiService.ts:1`. Do not commit secret keys to the repository — use local `.env` files and CI secrets.
 
 Recommended `.env` entries (example, may differ depending on implementation):
 
-- `GOOGLE_API_KEY` or application credentials for Gemini
+- `GEMINI_API_KEY` for Gemini task breakdown
 - Any OAuth/client secrets for embedded media (if used)
 
 Keep `.env` files out of source control — see the `.gitignore` suggestions below.
