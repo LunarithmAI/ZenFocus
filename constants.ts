@@ -1,6 +1,8 @@
 
 import { TimerMode, Theme } from './types';
 
+const themeAsset = (filename: string) => `${import.meta.env.BASE_URL}themes/${filename}`;
+
 export const DEFAULT_SETTINGS = {
   pomodoroTime: 25,
   shortBreakTime: 5,
@@ -19,28 +21,28 @@ export const THEMES: Theme[] = [
   {
     id: 'lofi-rain',
     name: 'Lofi Rain',
-    bgImage: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?q=75&w=2560&auto=format&fit=crop',
+    bgImage: themeAsset('lofi-rain.webp'),
     primaryColor: 'bg-indigo-500',
     textColor: 'text-white',
   },
   {
     id: 'forest-zen',
     name: 'Forest Zen',
-    bgImage: 'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?q=75&w=2560&auto=format&fit=crop',
+    bgImage: themeAsset('forest-zen.webp'),
     primaryColor: 'bg-emerald-600',
     textColor: 'text-emerald-50',
   },
   {
     id: 'minimal-dark',
     name: 'Deep Focus',
-    bgImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=75&w=2560&auto=format&fit=crop',
+    bgImage: themeAsset('deep-focus.webp'),
     primaryColor: 'bg-slate-700',
     textColor: 'text-slate-100',
   },
   {
     id: 'coffee-shop',
     name: 'Coffee Shop',
-    bgImage: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=75&w=2560&auto=format&fit=crop',
+    bgImage: themeAsset('coffee-shop.webp'),
     primaryColor: 'bg-orange-800',
     textColor: 'text-orange-50',
   },

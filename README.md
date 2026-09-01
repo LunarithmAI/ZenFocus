@@ -13,6 +13,7 @@ ZenFocus is a Pomodoro-style productivity timer built with React and Vite. It pr
 - Embedded media panel for Spotify, YouTube, and SoundCloud playlists (`components/MediaPanel.tsx:1`)
 - AI task breakdown using Gemini (`services/geminiService.ts:1`)
 - Minimal, fast UI with React + Vite
+- Installable PWA with an offline app shell and bundled background themes
 
 ## Quick start
 
@@ -38,6 +39,10 @@ ZenFocus is a Pomodoro-style productivity timer built with React and Vite. It pr
 
    - `npm run preview`
 
+6. Verify the production PWA assets
+
+   - `npm run verify:pwa`
+
 ## Environment & API keys
 
 This project can call Google’s Gemini REST API directly. The credential handling is implemented in `services/geminiService.ts:1`. Do not commit secret keys to the repository — use local `.env` files and CI secrets.
@@ -48,6 +53,8 @@ Recommended `.env` entries (example, may differ depending on implementation):
 - Any OAuth/client secrets for embedded media (if used)
 
 Keep `.env` files out of source control — see the `.gitignore` suggestions below.
+
+The timer, task list, settings, notification sound, and bundled themes work offline after the first successful load. AI task breakdown and embedded Spotify, YouTube, or SoundCloud media still require a network connection.
 
 ## Contributing
 

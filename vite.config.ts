@@ -16,7 +16,12 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['icon-192.svg', 'icon-512.svg'],
+          includeAssets: [
+            'icon-192.svg',
+            'icon-192.png',
+            'icon-512.png',
+            'icon-maskable-512.png'
+          ],
           manifest: {
             name: 'ZenFocus - AI Pomodoro',
             short_name: 'ZenFocus',
@@ -25,25 +30,23 @@ export default defineConfig(({ mode }) => {
             background_color: '#000000',
             display: 'standalone',
             orientation: 'portrait',
-            scope: '/',
-            start_url: '/',
             icons: [
               {
-                src: 'icon-192.svg',
+                src: 'icon-192.png',
                 sizes: '192x192',
-                type: 'image/svg+xml',
+                type: 'image/png',
                 purpose: 'any'
               },
               {
-                src: 'icon-512.svg',
+                src: 'icon-512.png',
                 sizes: '512x512',
-                type: 'image/svg+xml',
+                type: 'image/png',
                 purpose: 'any'
               },
               {
-                src: 'icon-512.svg',
+                src: 'icon-maskable-512.png',
                 sizes: '512x512',
-                type: 'image/svg+xml',
+                type: 'image/png',
                 purpose: 'maskable'
               }
             ],
@@ -51,7 +54,9 @@ export default defineConfig(({ mode }) => {
             lang: 'en'
           },
           workbox: {
-            globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+            globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+            navigateFallback: 'index.html',
+            cleanupOutdatedCaches: true,
             runtimeCaching: [
               {
                 urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,

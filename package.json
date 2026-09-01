@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:pwa": "npm run build && node scripts/verify-pwa.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
