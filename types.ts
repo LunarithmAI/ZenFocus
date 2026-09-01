@@ -21,6 +21,7 @@ export interface Settings {
   autoStartPomodoros: boolean;
   ecoMode: boolean; // Low CPU mode
   backgroundBlur: number; // pixels
+  backgroundDim: number; // percentage
   soundEnabled: boolean;
   browserNotifications: boolean;
   autoPiPEnabled: boolean; // Auto Picture-in-Picture when tab is hidden

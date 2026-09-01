@@ -348,6 +348,10 @@ const App: FC = () => {
 
     const container = pipWindowRef.current.document.getElementById('pip-container');
     pipWindowRef.current.document.body.style.backgroundImage = `url("${theme.bgImage}")`;
+    const backgroundOverlay = pipWindowRef.current.document.getElementById('pip-background-overlay');
+    if (backgroundOverlay) {
+      backgroundOverlay.style.background = `rgba(0, 0, 0, ${settings.backgroundDim / 100})`;
+    }
     if (!container) return;
 
     if (!container.querySelector('#pip-time')) {
@@ -447,6 +451,7 @@ const App: FC = () => {
     resetTimer,
     settings.autoPiPEnabled,
     settings.ecoMode,
+    settings.backgroundDim,
     theme.bgImage,
     switchMode,
     tasks,
@@ -500,9 +505,10 @@ const App: FC = () => {
           height: 100%;
         `;
 
-        // Add dark overlay
+        // Match the main window's adjustable background dimming.
         const overlay = pipWindow.document.createElement('div');
-        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.68); z-index: 1;';
+        overlay.id = 'pip-background-overlay';
+        overlay.style.cssText = `position: fixed; inset: 0; background: rgba(0, 0, 0, ${settings.backgroundDim / 100}); z-index: 1;`;
         pipWindow.document.body.appendChild(overlay);
 
         // Create PiP content container
@@ -560,8 +566,11 @@ const App: FC = () => {
              transform: settings.backgroundBlur > 0 ? 'scale(1.05)' : undefined
            }}
          />
-         {/* Slightly darker overlay for better contrast */}
-         <div className="absolute inset-0 bg-black/60" />
+         {/* Adjustable dark overlay for content contrast */}
+         <div
+           className="absolute inset-0 transition-colors duration-300"
+           style={{ backgroundColor: `rgba(0, 0, 0, ${settings.backgroundDim / 100})` }}
+         />
       </div>
 
       {/* Content Layer */}

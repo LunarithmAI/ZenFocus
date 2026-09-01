@@ -346,10 +346,11 @@ const SettingsModal: FC<SettingsModalProps> = ({
             <h3 className="text-xs uppercase font-bold text-white/40 mb-4 tracking-wider">Appearance</h3>
             <div className="bg-white/5 p-4 rounded-xl border border-white/5">
                 <div className="flex justify-between items-center mb-3">
-                    <label className="text-sm text-white/90 font-medium">Background Blur</label>
+                    <label htmlFor="background-blur" className="text-sm text-white/90 font-medium">Background Blur</label>
                     <span className="text-xs text-white/50 bg-white/10 px-2 py-1 rounded">{settings.backgroundBlur}px</span>
                 </div>
                 <input
+                    id="background-blur"
                     type="range"
                     min="0"
                     max="20"
@@ -361,6 +362,26 @@ const SettingsModal: FC<SettingsModalProps> = ({
                 <div className="flex justify-between text-[10px] text-white/30 mt-2">
                     <span>Sharp</span>
                     <span>Blurry</span>
+                </div>
+                <div className="border-t border-white/10 mt-4 pt-4">
+                    <div className="flex justify-between items-center mb-3">
+                        <label htmlFor="background-dim" className="text-sm text-white/90 font-medium">Background Dim</label>
+                        <span className="text-xs text-white/50 bg-white/10 px-2 py-1 rounded">{settings.backgroundDim}%</span>
+                    </div>
+                    <input
+                        id="background-dim"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={settings.backgroundDim}
+                        onChange={(e) => handleChange('backgroundDim', parseInt(e.target.value))}
+                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500 hover:accent-purple-400"
+                    />
+                    <div className="flex justify-between text-[10px] text-white/30 mt-2">
+                        <span>Clear</span>
+                        <span>Dark</span>
+                    </div>
                 </div>
             </div>
           </section>

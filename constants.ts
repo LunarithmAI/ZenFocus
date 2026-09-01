@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS = {
   autoStartPomodoros: false,
   ecoMode: true,
   backgroundBlur: 0,
+  backgroundDim: 60,
   soundEnabled: true,
   browserNotifications: true,
   autoPiPEnabled: true,
