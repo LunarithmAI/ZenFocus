@@ -346,11 +346,19 @@ const App: FC = () => {
   const updatePiP = useCallback(() => {
     if (!settings.autoPiPEnabled || !pipWindowRef.current) return;
 
-    const container = pipWindowRef.current.document.getElementById('pip-container');
-    pipWindowRef.current.document.body.style.backgroundImage = `url("${theme.bgImage}")`;
-    const backgroundOverlay = pipWindowRef.current.document.getElementById('pip-background-overlay');
+    const pipDocument = pipWindowRef.current.document;
+    const container = pipDocument.getElementById('pip-container');
+    const backgroundImage = pipDocument.getElementById('pip-background-image');
+    if (backgroundImage) {
+      backgroundImage.style.backgroundImage = `url("${theme.bgImage}")`;
+      backgroundImage.style.filter = settings.backgroundBlur > 0
+        ? `blur(${settings.backgroundBlur}px)`
+        : 'none';
+      backgroundImage.style.transform = settings.backgroundBlur > 0 ? 'scale(1.05)' : 'none';
+    }
+    const backgroundOverlay = pipDocument.getElementById('pip-background-overlay');
     if (backgroundOverlay) {
-      backgroundOverlay.style.background = `rgba(0, 0, 0, ${settings.backgroundDim / 100})`;
+      backgroundOverlay.style.backgroundColor = `rgba(0, 0, 0, ${settings.backgroundDim / 100})`;
     }
     if (!container) return;
 
@@ -451,6 +459,7 @@ const App: FC = () => {
     resetTimer,
     settings.autoPiPEnabled,
     settings.ecoMode,
+    settings.backgroundBlur,
     settings.backgroundDim,
     theme.bgImage,
     switchMode,
@@ -491,24 +500,25 @@ const App: FC = () => {
           overflow: hidden;
         `;
 
-        // Set background with current theme
         pipWindow.document.body.style.cssText = `
-          margin: 0; 
-          padding: 0; 
-          overflow: hidden; 
-          background-image: url('${theme.bgImage}');
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+          background: #000;
           position: relative;
           width: 100%;
           height: 100%;
         `;
 
-        // Match the main window's adjustable background dimming.
+        // Keep visual effects on a dedicated layer so the PiP content stays sharp.
+        const backgroundImage = pipWindow.document.createElement('div');
+        backgroundImage.id = 'pip-background-image';
+        backgroundImage.style.cssText = 'position: fixed; inset: 0; z-index: 0; background-size: cover; background-position: center; background-repeat: no-repeat; transform-origin: center; transition: filter 300ms ease, transform 300ms ease, background-image 300ms ease;';
+        pipWindow.document.body.appendChild(backgroundImage);
+
         const overlay = pipWindow.document.createElement('div');
         overlay.id = 'pip-background-overlay';
-        overlay.style.cssText = `position: fixed; inset: 0; background: rgba(0, 0, 0, ${settings.backgroundDim / 100}); z-index: 1;`;
+        overlay.style.cssText = 'position: fixed; inset: 0; z-index: 1; transition: background-color 300ms ease;';
         pipWindow.document.body.appendChild(overlay);
 
         // Create PiP content container
